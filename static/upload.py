@@ -21,7 +21,8 @@ tokenHeader = {"Authorization": f"Bearer {base64.b64encode(KEY.encode()).decode(
 tokenReq = requests.get(f"{args.url}/repo/{args.namespace}/{args.repo}/token",
                         headers=tokenHeader)
 if tokenReq.status_code == 200:
-    if token := tokenReq.json()["token"]:
+    if tokenReq.json()["token"]:
+        token = tokenReq.json()["token"]
         tokenHeader = {"Authorization": f"Bearer {base64.b64encode(token.encode()).decode()}"}
 else:
     print(f"Token could not be fetched: {tokenReq}")

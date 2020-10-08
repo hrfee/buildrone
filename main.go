@@ -492,7 +492,7 @@ func main() {
 	buildAPI := router.Group("/", app.buildAuth())
 	buildAPI.POST("/repo/:namespace/:name/add", app.addFiles)
 	srv := &http.Server{
-		Addr:    "0.0.0.0:8059",
+		Addr:    "0.0.0.0:8062",
 		Handler: router,
 	}
 	go func() {
