@@ -66,7 +66,7 @@ const genCard = (repo: Repo, commit: string, latest: boolean): HTMLDivElement =>
                 <a>Files</a>
             </label>
             <div class="accordion-body">
-                <ul class="menu menu-nav">
+                <ul class="menu menu-nav accordionList">
         `;
         for (let i = 0; i < build.Files.length; i++) {
             fileList += `

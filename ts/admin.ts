@@ -114,7 +114,7 @@ const genCard = (repo: Repo): HTMLDivElement => {
     let newSecretButton = "";
     if (repo.Secret) {
         newSecretButton = `
-        <button class="btn btn-lg btn-error" onclick="newKey('${repo.Namespace}', '${repo.Name}', true, this)">Regenerate Secret</button>
+        <button class="btn btn-lg btn-error" onclick="newSecretWarning('${repo.Namespace}', '${repo.Name}', this)" style="margin: 0.5rem;">New Secret</button>
         `;
     }
     let text = `
@@ -127,9 +127,10 @@ const genCard = (repo: Repo): HTMLDivElement => {
             </div>
             <div class="divider-vert"></div>
             <div class="column">
-                <div class="card-body">
-                    <button class="btn btn-lg ${!repo.Secret ? '' : 'btn-primary'}" onclick="newKey('${repo.Namespace}', '${repo.Name}', false, this)">${!repo.Secret ? 'Setup' : 'Generate Key'}</button>
+                <div class="card-body" style="padding-bottom: 0.8rem;">
+                    <button class="btn btn-lg ${!repo.Secret ? '' : 'btn-primary'}" onclick="newKey('${repo.Namespace}', '${repo.Name}', false, this)" style="margin: 0.5rem;">${!repo.Secret ? 'Setup' : 'New Key'}</button>
                     ${newSecretButton}
+                    <div class="textArea"></div>
                 </div>
             <div>
         </div>
@@ -140,6 +141,19 @@ const genCard = (repo: Repo): HTMLDivElement => {
     return el.firstElementChild as HTMLDivElement;
 };
 
+const emptyCard = (): HTMLDivElement => {
+    const el = document.createElement('div') as HTMLDivElement;
+    el.innerHTML = `
+    <div class="card empty">
+        <div class="empty-subtitle">
+            Setup repositories in Drone to see them here.
+        </div>
+    </div>
+    `;
+    return el.firstElementChild as HTMLDivElement;
+};
+
+
 interface NewKeyReqDTO {
     NewSecret: boolean;
 }
@@ -148,17 +162,28 @@ interface NewKeyRespDTO {
     Key: string;
 }
 
+var newSecretButtonEl: HTMLButtonElement;
+
+function newSecretWarning(namespace: string, name: string, button: HTMLButtonElement): void {
+    newSecretButtonEl = button;
+    (document.getElementById('newSecretSubmit') as HTMLButtonElement).setAttribute('onclick', `newKey('${namespace}', '${name}', true, newSecretButtonEl)`);
+    addAttr(document.getElementById('secretWarningModal'), "active");
+}
+
 function newKey(namespace: string, name: string, newSecret: boolean, button: HTMLButtonElement): void {
+    const textArea = button.parentElement.getElementsByClassName('textArea')[0];
+    textArea.textContent = '';
     const removeError = !button.classList.contains("btn-error");
     addAttr(button, "loading");
+    const ogText = button.textContent;
     let data: NewKeyReqDTO = { NewSecret: newSecret };
     _post(`/repo/${namespace}/${name}/key`, data, function (): void {
         if (this.readyState == 4) {
+            rmAttr(document.getElementById('secretWarningModal'), "active");
             rmAttr(button, "loading");
             if (this.status != 200) {
                 addAttr(button, "btn-error");
                 rmAttr(button, "btn-primary");
-                const ogText = button.textContent;
                 button.textContent = "Failed";
                 setTimeout((): void => {
                     addAttr(button, "btn-primary");
@@ -174,7 +199,7 @@ function newKey(namespace: string, name: string, newSecret: boolean, button: HTM
                 button.textContent = "Success";
                 const secretButton = document.createElement('button');
                 secretButton.classList.add("btn", "text-monospace");
-                secretButton.setAttribute('style', 'width: 6rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;');
+                secretButton.setAttribute('style', 'width: 6rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin: 0.5rem;');
                 const msg = document.createElement('p');
                 addAttr(msg, "text-gray");
                 if (newSecret) {
@@ -186,7 +211,7 @@ function newKey(namespace: string, name: string, newSecret: boolean, button: HTM
 
                 Click the above build key to copy it, and store it as the 'BUILDRONE_KEY' environment variable in Drone for the upload script to use.`;
                 secretButton.innerHTML = `
-                ${secret} <i class="icon icon-copy"></i>
+                <i class="icon icon-copy"></i> ${secret}
                 `;
                 secretButton.onclick = (): void => {
                     toClipboard(secret);
@@ -200,15 +225,14 @@ function newKey(namespace: string, name: string, newSecret: boolean, button: HTM
                     msg.appendChild(toast);
                     setTimeout((): void => toast.remove(), 5000);
                 };
-
-                button.parentElement.appendChild(secretButton);
-                button.parentElement.appendChild(msg);
+                textArea.appendChild(secretButton);
+                textArea.appendChild(msg);
                 setTimeout((): void => {
                     secretButton.remove();
                     msg.remove();
                     rmAttr(button, "btn-primary");
                     rmAttr(button, "btn-success");
-                    button.textContent = "Regenerate secret";
+                    button.textContent = ogText;
                 }, 60000);
             }
         }
@@ -309,8 +333,12 @@ const loadRepos = (): void => _get('/repos', null, function (): void {
                 }
             }
         });
+        const el = document.getElementById("content");
         for (let i = 0; i < repoOrder.length; i++) {
-            document.getElementById("content").appendChild(genCard(repoList[repoOrder[i]]));
+            el.appendChild(genCard(repoList[repoOrder[i]]));
+        }
+        if (repoOrder.length < 2) {
+            el.appendChild(emptyCard())
         }
     }
 });

@@ -48,6 +48,21 @@
                 </div>
             </div>
         </div>
+        <div class="modal modal-sm" id="secretWarningModal">
+            <a href="#close" class="modal-overlay" aria-label="Close"></a>
+            <div class="modal-container">
+                <div class="modal-header">
+                    <div class="modal-title h5">Are you sure?</div>
+                </div>
+                <div class="modal-body">
+                    <p class="content">Regenerating the secret will invalidate all previously generated build keys.</o>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-link" aria-label="Cancel" onclick="rmAttr(document.getElementById('secretWarningModal'), 'active')">Cancel</button>
+                    <button class="btn btn-primary" id="newSecretSubmit">Continue</button>
+                </div>
+            </div>
+        </div>
 
         <div class="container">
             <div class="columns">

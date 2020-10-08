@@ -8,6 +8,10 @@
         margin-top: 5%;
         margin-bottom: 5%;
     }
+    .accordionList {
+        max-height: inherit;
+        overflow-y: scroll;
+    }
 </style>
 <html lang="en">
     <head>
@@ -31,6 +35,9 @@
                     <header class="navbar">
                         <section class="navbar-section">
                             <b class="navbar-brand mr-2">builds for <a href="{{ .repoLink }}">{{ .namespace }}/{{ .name }}</a></b>
+                        </section>
+                        <section class="navbar-section">
+                            <a class="text-gray" href="https://github.com/hrfee/buildrone">buildrone</a>
                         </section>
                     </header>
                     <div class="container" id="content">
