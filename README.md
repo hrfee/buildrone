@@ -4,8 +4,20 @@ A small app for serving build output files publicly for Drone CI. You use it lik
 * Once your repo is setup in drone, open the buildrone dashboard and press "Setup" on your repo. A key is generated, which you store as the `BUILDRONE_SECRET` environment variable in your Drone build settings.
 * In your drone.yml, grab the upload script from `your_buildrone_url/upload.py`, and run it to upload your files. See [here](https://github.com/hrfee/jfa-go/blob/main/.drone.yml) for an example.
 
-#### *building*
+#### *building/installing*
 Install esbuild and ensure its in your path, and then run `make all` to get deps, compile the program and typescript, and dump everything in the `build/` folder.
+
+A Dockerfile is also provided.
+```
+(main) >: docker build -t buildrone .
+
+(main) >: docker create --name buildrone \
+                        --restart always \
+                        -v path/to/your/config.ini:/config.ini \
+                        -v path/to/data/storage:/data \
+                        -p 8062:8062 \
+                        buildrone
+```
 
 #### *usage*
 On first run, a template config file will be created. Fill it out then rerun the program again to start it. Daemonization is up to you.

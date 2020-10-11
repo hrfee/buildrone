@@ -281,8 +281,9 @@ func main() {
 	router := gin.New()
 
 	router.Use(gin.Recovery())
-	router.LoadHTMLGlob("templates/*")
-	router.Use(static.Serve("/", static.LocalFile("static", false)))
+	executable, _ := os.Executable()
+	router.LoadHTMLGlob(filepath.Join(filepath.Dir(executable), "templates/*"))
+	router.Use(static.Serve("/", static.LocalFile(filepath.Join(filepath.Dir(executable), "static"), false)))
 	router.GET("/repo/:namespace/:name/token", app.getBuildToken)
 	router.GET("/repo/:namespace/:name/build/:build/:file", app.getFile)
 	router.GET("/repo/:namespace/:name/builds/:page", app.getBuilds)
