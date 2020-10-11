@@ -85,7 +85,7 @@ interface File {
 }
 
 const genCard = (repo: Repo): HTMLDivElement => {
-    const hasBuilds = Object.keys(repo.Builds).length != 0
+    const hasBuilds = repo.LatestCommit != ""
     let shortCommit = '';
     if (repo.Secret && hasBuilds && repo.LatestCommit.length >= 7) {
         shortCommit = repo.LatestCommit.substring(0, 7);
@@ -118,7 +118,7 @@ const genCard = (repo: Repo): HTMLDivElement => {
         `;
     }
     let text = `
-    <div class="card container">
+    <div class="card minicard">
         <div class="columns col-gapless">
             <div class="column">
                 <div class="card-header">
@@ -308,19 +308,12 @@ const loadRepos = (): void => _get('/repos', null, function (): void {
     if (this.readyState == 4 && this.status == 200) {
         repoList = this.response;
         for (const key of Object.keys(repoList)) {
-            let buildOrder: Array<string> = [];
-            for (const bKey of Object.keys(repoList[key].Builds)) {
-                repoList[key].Builds[bKey].Date = new Date(repoList[key].Builds[bKey].Date);
-                buildOrder.push(bKey);
-            }
-            buildOrder = buildOrder.sort((a: string, b: string) => repoList[key].Builds[b].Date.getTime() - repoList[key].Builds[a].Date.getTime())
-            repoList[key].LatestCommit = buildOrder[0];
-            repoList[key].LatestPush = repoList[key].Builds[buildOrder[0]]
+            repoList[key].LatestPush.Date = new Date(repoList[key].LatestPush.Date);
             repoOrder.push(key);
         }
         repoOrder = repoOrder.sort((a: string, b: string): any => {
             if (repoList[b].Secret == repoList[a].Secret) {
-                if (repoList[b].Secret && Object.keys(repoList[b].Builds).length != 0 && Object.keys(repoList[a].Builds).length != 0) {
+                if (repoList[b].Secret && repoList[b].LatestCommit != "" && repoList[a].LatestCommit != "") {
                     return repoList[b].LatestPush.Date.getTime() - repoList[a].LatestPush.Date.getTime();
                 } else {
                     return 0;

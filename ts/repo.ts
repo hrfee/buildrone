@@ -33,6 +33,7 @@ interface Repo {
     Namespace: string;
     Name: string;
     Builds: { [commit: string]: Build };
+    BuildPageCount: number;
 }
 
 interface Build {
@@ -82,7 +83,7 @@ const genCard = (repo: Repo, commit: string, latest: boolean): HTMLDivElement =>
         `;
     }
     let text = `
-    <div class="card container">
+    <div class="card minicard">
         <div class="columns col-gapless">
             <div class="column">
                 <div class="card-header">
@@ -112,22 +113,43 @@ const repoName = title[1];
 
 var repo: Repo;
 var buildOrder: Array<string> = [];
+var currentPage = 1;
 
 _get(`${base}/repo/${namespace}/${repoName}`, null, function (): void {
     if (this.readyState == 4 && this.status == 200) {
         repo = <Repo>this.response;
-        for (const key of Object.keys(repo.Builds)) {
-            const build = repo.Builds[key];
-            build.Date = new Date(build.Date);
-            buildOrder.push(key);
-        }
-        buildOrder = buildOrder.sort((a: string, b: string) => repo.Builds[b].Date.getTime() - repo.Builds[a].Date.getTime())
-        console.log(repo);
-        for (let i = 0; i < buildOrder.length; i++) {
-            document.getElementById("content").appendChild(genCard(repo, buildOrder[i], false));
+        repo.Builds = {};
+        if (repo.BuildPageCount != 0) {
+            getPage(1);
         }
     }
 });
 
+interface BuildsDTO {
+    Order: Array<string>;
+    Builds: { [commit: string]: Build };
+}
 
-
+const getPage = (page: number): void => _get(`${base}/repo/${namespace}/${repoName}/builds/${page}`, null, function (): void {
+    if (this.readyState == 4) {
+        const loadButton = document.getElementById('loadMore') as HTMLButtonElement;
+        const contentBox = document.getElementById('content') as HTMLDivElement;
+        if (this.status == 200) {
+            currentPage = page;
+            loadButton.remove();
+            const resp: BuildsDTO = this.response;
+            for (const key of resp.Order) {
+                const build = resp.Builds[key];
+                build.Date = new Date(build.Date);
+                buildOrder.push(key);
+                repo.Builds[key] = build;
+                contentBox.appendChild(genCard(repo, key, false));
+            }
+        }
+        loadButton.onclick = (): void => getPage(currentPage+1);
+        if (currentPage+1 <= repo.BuildPageCount) {
+            contentBox.appendChild(loadButton);
+        }
+    }
+});
+    

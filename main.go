@@ -4,7 +4,6 @@ import (
 	"encoding/gob"
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
@@ -23,13 +22,14 @@ import (
 )
 
 var (
-	TOKEN        = ""
-	HOST         = ""
-	DATADIR      = filepath.Join(xdg.DataHome, "buildrone")
-	STORAGE      = filepath.Join(DATADIR, "buildfiles")
-	CONFIG       = filepath.Join(xdg.ConfigHome, "buildrone", "config.ini")
-	DIRPERM      = 0700
-	TOKEN_PERIOD = 40 // Refresh token expiry in days. Essentially the longest time without a build before you need to make a new token.
+	TOKEN         = ""
+	HOST          = ""
+	DATADIR       = filepath.Join(xdg.DataHome, "buildrone")
+	STORAGE       = filepath.Join(DATADIR, "buildfiles")
+	CONFIG        = filepath.Join(xdg.ConfigHome, "buildrone", "config.ini")
+	DIRPERM       = 0700
+	TOKEN_PERIOD  = 40 // Refresh token expiry in days. Essentially the longest time without a build before you need to make a new token.
+	BUILDSPERPAGE = 6
 )
 
 type Build struct {
@@ -56,12 +56,13 @@ type appContext struct {
 }
 
 type RepoDTO struct {
-	Namespace    string              // `json:"namespace"`
-	Name         string              // `json:"name"`
-	Builds       map[string]BuildDTO // `json:"builds"`
-	LatestCommit string
-	LatestPush   BuildDTO
-	Secret       bool
+	Namespace      string // `json:"namespace"`
+	Name           string // `json:"name"`
+	BuildPageCount uint   // `json:"builds"`
+	Builds         map[string]BuildDTO
+	LatestCommit   string
+	LatestPush     BuildDTO
+	Secret         bool
 }
 
 type BuildDTO struct {
@@ -124,199 +125,6 @@ type NewKeyReqDTO struct {
 
 type NewKeyRespDTO struct {
 	Key string
-}
-
-func (app *appContext) NewKey(gc *gin.Context) {
-	namespace := gc.Param("namespace")
-	name := gc.Param("name")
-	var req NewKeyReqDTO
-	err := gc.BindJSON(&req)
-	if err != nil {
-		msg := fmt.Sprintf("Failed to bind request JSON: %s", err)
-		log.Printf("%s/%s: %s", namespace, name, msg)
-		end(400, msg, gc)
-		return
-	}
-	err = app.loadRepos()
-	if err != nil {
-		end(500, fmt.Sprintf("Couldn't load repos: %s", err), gc)
-		return
-	}
-	id := namespace + "/" + name
-	repo, ok := app.storage[id]
-	if !ok {
-		end(400, fmt.Sprintf("Repo not found: %s/%s", namespace, name), gc)
-		return
-	}
-	if req.NewSecret || repo.Secret == "" {
-		log.Printf("%s/%s: Generating new secret (invalidating previous tokens)", namespace, name)
-		repo.Secret = shortuuid.New()
-	}
-	if err != nil {
-		end(500, fmt.Sprintf("Couldn't generate build token: %s", err), gc)
-		return
-	}
-	app.storage[id] = repo
-	err = app.store()
-	if err != nil {
-		end(500, fmt.Sprintf("Couldn't store data: %s", err), gc)
-		return
-	}
-	log.Printf("%s/%s: Generating new key", namespace, name)
-	_, key, err := newBuildToken(namespace, name, repo.Secret)
-	if err != nil {
-		end(500, fmt.Sprintf("Couldn't generate token: %s", err), gc)
-		return
-	}
-	gc.JSON(200, NewKeyRespDTO{Key: key})
-}
-
-func (app *appContext) addFiles(gc *gin.Context) {
-	ns := gc.Param("namespace")
-	name := gc.Param("name")
-	commit := gc.PostForm("commit")
-
-	form, err := gc.MultipartForm()
-	if err != nil {
-		end(400, fmt.Sprintf("Form error: %s", err), gc)
-		log.Printf("%s/%s: Form error: %s", ns, name, err)
-		return
-	}
-	files := form.File
-	_, ok := app.storage[ns+"/"+name]
-	if !ok {
-		dRepo, err := app.client.Repo(ns, name)
-		if err != nil {
-			out := fmt.Sprintf("Repository not found: %s/%s", ns, name)
-			end(400, out, gc)
-			log.Println(out)
-			return
-		}
-		newRepo := Repo{
-			Namespace: ns,
-			Name:      name,
-			Link:      dRepo.Link,
-			Secret:    shortuuid.New(),
-		}
-		newRepo.Builds = map[string]Build{}
-
-		app.storage[ns+"/"+name] = newRepo
-	}
-	os.Mkdir(filepath.Join(STORAGE, ns), os.FileMode(DIRPERM))
-	os.Mkdir(filepath.Join(STORAGE, ns, name), os.FileMode(DIRPERM))
-	repo := app.storage[ns+"/"+name]
-	repo.Builds, err = app.loadBuilds(repo.Builds, ns, name)
-	if err != nil {
-		end(500, fmt.Sprintf("Couldn't get builds: %s", err), gc)
-		return
-	}
-	commitDirectory := filepath.Join(ns, name, commit)
-	os.Mkdir(filepath.Join(STORAGE, commitDirectory), os.FileMode(DIRPERM))
-	build := repo.Builds[commit]
-	for fname, file := range files {
-		buildFolder := filepath.Join(STORAGE, commitDirectory, fname)
-		log.Printf("%s/%s (%s): Saving to %s\n", ns, name, commit, buildFolder)
-		if err := gc.SaveUploadedFile(file[0], buildFolder); err != nil {
-			end(500, fmt.Sprintf("Couldn't store file: %s", err), gc)
-			return
-		}
-	}
-	build.Files = commitDirectory
-	repo.Builds[commit] = build
-	app.storage[ns+"/"+name] = repo
-	app.store()
-	gc.AbortWithStatus(200)
-}
-
-func (app *appContext) getRepos(gc *gin.Context) {
-	resp := map[string]RepoDTO{}
-	// Namespace string              // `json:"namespace"`
-	// Name      string              // `json:"name"`
-	// Builds    map[string]BuildDTO // `json:"builds"`
-	// LatestCommit string
-	// LatestPush BuildDTO
-	// Secret bool
-	for nsName, repo := range app.storage {
-		nRepo := RepoDTO{
-			Namespace: repo.Namespace,
-			Name:      repo.Name,
-			Builds:    map[string]BuildDTO{},
-			Secret:    (repo.Secret != ""),
-		}
-		for commit, build := range repo.Builds {
-			nRepo.Builds[commit] = BuildDTO{
-				ID:   build.ID,
-				Link: build.Link,
-				Date: build.Date,
-			}
-		}
-		resp[nsName] = nRepo
-	}
-	gc.JSON(200, resp)
-}
-
-func (app *appContext) getRepo(gc *gin.Context) {
-	namespace := gc.Param("namespace")
-	name := gc.Param("name")
-	repo, ok := app.storage[namespace+"/"+name]
-	if !ok {
-		end(400, fmt.Sprintf("Repository not found: %s/%s", namespace, name), gc)
-		return
-	}
-	resp := RepoDTO{
-		Namespace: namespace,
-		Name:      name,
-		Builds:    map[string]BuildDTO{},
-	}
-	for commit, build := range repo.Builds {
-		dto := BuildDTO{
-			ID:   build.ID,
-			Name: build.Name,
-			Date: build.Date,
-			Link: build.Link,
-		}
-		if build.Files != "" {
-			files, err := ioutil.ReadDir(filepath.Join(STORAGE, build.Files))
-			if err != nil {
-				log.Printf("%s/%s: Error reading \"%s\": %s\n", namespace, name, build.Files, err)
-				continue
-			}
-			dto.Files = make([]FileDTO, len(files))
-			for i, f := range files {
-				dto.Files[i] = FileDTO{
-					Name: f.Name(),
-					Size: fileSize(f.Size()),
-				}
-			}
-		}
-		if commit != "" {
-			resp.Builds[commit] = dto
-		}
-	}
-	gc.JSON(200, resp)
-}
-
-func (app *appContext) getFile(gc *gin.Context) {
-	namespace := gc.Param("namespace")
-	name := gc.Param("name")
-	buildname := gc.Param("build")
-	fname := gc.Param("file")
-	repo, ok := app.storage[namespace+"/"+name]
-	if !ok {
-		end(400, fmt.Sprintf("Repository not found: %s/%s", namespace, name), gc)
-		return
-	}
-	build, ok := repo.Builds[buildname]
-	if !ok {
-		end(400, "Build not found", gc)
-		return
-	}
-	path := filepath.Join(build.Files, fname)
-	if _, err := os.Stat(filepath.Join(STORAGE, path)); os.IsNotExist(err) {
-		end(400, fmt.Sprintf("File not found: %s", path), gc)
-		return
-	}
-	gc.FileFromFS(path, app.fs)
 }
 
 func (app *appContext) loadBuilds(bl map[string]Build, ns, name string) (builds map[string]Build, err error) {
@@ -467,6 +275,7 @@ func main() {
 	router.Use(static.Serve("/", static.LocalFile("static", false)))
 	router.GET("/repo/:namespace/:name/token", app.getBuildToken)
 	router.GET("/repo/:namespace/:name/build/:build/:file", app.getFile)
+	router.GET("/repo/:namespace/:name/builds/:page", app.getBuilds)
 	router.GET("/repo/:namespace/:name", app.getRepo)
 	router.GET("/", func(gc *gin.Context) {
 		gc.HTML(200, "admin.html", gin.H{})
