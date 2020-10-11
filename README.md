@@ -1,9 +1,25 @@
 #### *buildrone*
 
 A small app for serving build output files publicly for Drone CI. You use it like this:
-* Once your repo is setup in drone, open the buildrone dashboard and press "Setup" on your repo. A key is generated, which you store as the `BUILDRONE_SECRET` environment variable in your Drone build srtings.
-* In your drone.yml, grab the upload script from `your_buildrone_url/upload.py`, and run it to upload your files.
+* Once your repo is setup in drone, open the buildrone dashboard and press "Setup" on your repo. A key is generated, which you store as the `BUILDRONE_SECRET` environment variable in your Drone build settings.
+* In your drone.yml, grab the upload script from `your_buildrone_url/upload.py`, and run it to upload your files. See [here](https://github.com/hrfee/jfa-go/blob/main/.drone.yml) for an example.
 
+#### *building*
+Install esbuild and ensure its in your path, and then run `make all` to get deps, compile the program and typescript, and dump everything in the `build/` folder.
 
+#### *usage*
+On first run, a template config file will be created. Fill it out then rerun the program again to start it. Daemonization is up to you.
 
-
+```
+Usage of buildrone:
+  -config string
+    	location of config file (ini) (default "~/.config/buildrone/config.ini")
+  -data string
+    	location of stored database and build files (default "~/.local/share/buildrone")
+  -debug
+    	use debug mode
+  -host string
+    	address to host app on (default "0.0.0.0")
+  -port int
+    	port to host app on (default 8062)
+```

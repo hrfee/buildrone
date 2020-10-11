@@ -30,6 +30,9 @@ var (
 	DIRPERM       = 0700
 	TOKEN_PERIOD  = 40 // Refresh token expiry in days. Essentially the longest time without a build before you need to make a new token.
 	BUILDSPERPAGE = 6
+	DEBUG         = false
+	SERVE         = "0.0.0.0"
+	PORT          = 8062
 )
 
 type Build struct {
@@ -204,6 +207,9 @@ func main() {
 
 	flag.StringVar(&CONFIG, "config", CONFIG, "location of config file (ini)")
 	flag.StringVar(&DATADIR, "data", DATADIR, "location of stored database and build files")
+	flag.StringVar(&SERVE, "host", SERVE, "address to host app on")
+	flag.IntVar(&PORT, "port", PORT, "port to host app on")
+	flag.BoolVar(&DEBUG, "debug", DEBUG, "use debug mode")
 
 	flag.Parse()
 
@@ -267,7 +273,11 @@ func main() {
 	log.Printf("Loading repos & builds")
 	app.loadAllBuilds()
 	log.Printf("Setting up router")
-	gin.SetMode(gin.DebugMode)
+	if DEBUG {
+		gin.SetMode(gin.DebugMode)
+	} else {
+		gin.SetMode(gin.ReleaseMode)
+	}
 	router := gin.New()
 
 	router.Use(gin.Recovery())
@@ -301,7 +311,7 @@ func main() {
 	buildAPI := router.Group("/", app.buildAuth())
 	buildAPI.POST("/repo/:namespace/:name/add", app.addFiles)
 	srv := &http.Server{
-		Addr:    "0.0.0.0:8062",
+		Addr:    fmt.Sprintf("%s:%d", SERVE, PORT),
 		Handler: router,
 	}
 	go func() {
