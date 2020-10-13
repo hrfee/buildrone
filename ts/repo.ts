@@ -1,3 +1,5 @@
+var locale: string = navigator.language || window.navigator.language || "en-US"
+
 const _get = (url: string, data: Object, onreadystatechange: () => void): void => {
     let req = new XMLHttpRequest();
     req.open("GET", url, true);
@@ -49,7 +51,7 @@ interface File {
     Size: string;
 }
 
-const genCard = (repo: Repo, commit: string, latest: boolean): HTMLDivElement => {
+const genCard = (repo: Repo, commit: string): HTMLDivElement => {
     const build = repo.Builds[commit];
     const shortCommit = commit.substring(0, 7);
     let linkPrefix = `${base}/repo/${repo.Namespace}/${repo.Name}/build/${commit}`  
@@ -88,8 +90,8 @@ const genCard = (repo: Repo, commit: string, latest: boolean): HTMLDivElement =>
             <div class="column">
                 <div class="card-header">
                     <a href="${build.Link}" class="card-title h5 text-monospace">${shortCommit}</a>
-                    <div class="card-subtitle text-gray text-monospace">${name}</div>
-                    <div class="card-subtitle text-gray">${latest ? 'Latest ' : ''}(${build.Date.toLocaleDateString('en-US')} @ ${build.Date.toLocaleTimeString('en-US')})</div>
+                    <div class="card-subtitle text-gray text-monospace">${build.Name}</div>
+                    <div class="card-subtitle text-gray">${build.Date.toLocaleDateString(locale)} @ ${build.Date.toLocaleTimeString(locale)}</div>
                 </div>
             </div>
             <div class="divider-vert"></div>
@@ -143,7 +145,7 @@ const getPage = (page: number): void => _get(`${base}/repo/${namespace}/${repoNa
                 build.Date = new Date(build.Date);
                 buildOrder.push(key);
                 repo.Builds[key] = build;
-                contentBox.appendChild(genCard(repo, key, false));
+                contentBox.appendChild(genCard(repo, key));
             }
         }
         loadButton.onclick = (): void => getPage(currentPage+1);

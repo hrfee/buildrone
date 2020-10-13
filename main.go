@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/adrg/xdg"
@@ -36,11 +37,12 @@ var (
 )
 
 type Build struct {
-	ID    int64
-	Name  string // commit line
-	Date  time.Time
-	Files string
-	Link  string
+	ID      int64
+	Name    string // commit line
+	Date    time.Time
+	Files   string
+	Link    string
+	Message string
 }
 
 type Repo struct {
@@ -69,11 +71,12 @@ type RepoDTO struct {
 }
 
 type BuildDTO struct {
-	ID    int64     // `json:"id"`
-	Name  string    // `json:"name"`
-	Date  time.Time // `json:"date"`
-	Files []FileDTO // `json:"files"`
-	Link  string    // `json:"link"`
+	ID      int64     // `json:"id"`
+	Name    string    // `json:"name"`
+	Date    time.Time // `json:"date"`
+	Files   []FileDTO // `json:"files"`
+	Link    string    // `json:"link"`
+	Message string
 }
 
 type FileDTO struct {
@@ -140,7 +143,7 @@ func (app *appContext) loadBuilds(bl map[string]Build, ns, name string) (builds 
 		commit := dBuild.After
 		build := Build{
 			ID:   dBuild.ID,
-			Name: dBuild.Title,
+			Name: strings.Split(dBuild.Message, "\n")[0],
 			Date: time.Unix(dBuild.Updated, 0),
 			Link: dBuild.Link,
 		}
