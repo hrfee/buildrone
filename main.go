@@ -34,15 +34,58 @@ var (
 	DEBUG         = false
 	SERVE         = "0.0.0.0"
 	PORT          = 8062
+	MAXAGE        = ""
+	MAXAGEDELTA   maxAgeDelta
 )
 
+func parseNum(str string, d string) int {
+	if !strings.Contains(str, d) {
+		return 0
+	}
+	s := strings.Split(str, d)[0]
+	num := ""
+	for _, c := range s {
+		_, err := strconv.Atoi(string(c))
+		if err == nil {
+			num += string(c)
+		}
+		if err != nil {
+			num = ""
+		}
+	}
+	n, err := strconv.Atoi(num)
+	if err != nil {
+		return 0
+	}
+	return n
+}
+
+type maxAgeDelta = func(t time.Time) bool
+
+func parseMaxAge(maxage string) (f maxAgeDelta) {
+	// h = hours, d = days, y = years
+	years := parseNum(maxage, "y")
+	days := parseNum(maxage, "d")
+	hours := parseNum(maxage, "h")
+	minutes := parseNum(maxage, "m")
+	if maxage == "" || (years == 0 && days == 0 && hours == 0 && minutes == 0) {
+		f = func(t time.Time) bool { return false }
+	} else {
+		f = func(t time.Time) bool {
+			return time.Now().After(t.Add(time.Duration(365*24*years+24*days+hours)*time.Hour + time.Duration(minutes)*time.Minute))
+		}
+	}
+	return
+}
+
 type Build struct {
-	ID      int64
-	Name    string // commit line
-	Date    time.Time
-	Files   string
-	Link    string
-	Message string
+	ID          int64
+	Name        string // commit line
+	Date        time.Time
+	DateChanged time.Time
+	Files       string
+	Link        string
+	Message     string
 }
 
 type Repo struct {
@@ -149,6 +192,12 @@ func (app *appContext) loadBuilds(bl map[string]Build, ns, name string) (builds 
 		}
 		if b, ok := bl[commit]; ok {
 			build.Files = b.Files
+			build.DateChanged = b.DateChanged
+			if build.Files != "" && MAXAGEDELTA(build.DateChanged) {
+				log.Printf("Removing old files for commit %s", commit)
+				os.RemoveAll(filepath.Join(STORAGE, build.Files))
+				build.Files = ""
+			}
 		}
 		builds[commit] = build
 	}
@@ -213,9 +262,9 @@ func main() {
 	flag.StringVar(&SERVE, "host", SERVE, "address to host app on")
 	flag.IntVar(&PORT, "port", PORT, "port to host app on")
 	flag.BoolVar(&DEBUG, "debug", DEBUG, "use debug mode")
+	flag.StringVar(&MAXAGE, "maxage", MAXAGE, "Delete files from commits once they are this old. example: 1y30d2h (m = minutes, h = hours, d = days, y = years).")
 
 	flag.Parse()
-
 	STORAGE = filepath.Join(DATADIR, "buildfiles")
 
 	if _, err := os.Stat(DATADIR); os.IsNotExist(err) {
@@ -238,6 +287,7 @@ func main() {
 		setKey(tempConfig, "drone_host", "https://drone.url", "Drone URL.")
 		setKey(tempConfig, "drone_apikey", "", "Drone API key. Can be generated in user settings.")
 		setKey(tempConfig, "token_period", strconv.Itoa(TOKEN_PERIOD), "Build token expiry in days. After generating a build key, you will have this long before you need to regenerate.")
+		setKey(tempConfig, "max_file_age", "1y", "Maximum age of files on a commit. example: 1y30d2h (y = years, d = days, h = hours, m = minutes).")
 		setKey(tempConfig, "username", "your username", "Web UI username.")
 		setKey(tempConfig, "password_hash", "", "Web UI password hash. Generate by running \"buildrone password\".")
 		err = tempConfig.SaveTo(CONFIG)
@@ -253,6 +303,12 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to load config: %s", err)
 	}
+
+	if maxage := app.config.Section("").Key("max_file_age").MustString(""); maxage != "" {
+		MAXAGE = maxage
+	}
+
+	MAXAGEDELTA = parseMaxAge(MAXAGE)
 
 	app.storage = map[string]Repo{}
 	TOKEN_PERIOD = app.config.Section("").Key("token_period").MustInt(TOKEN_PERIOD)

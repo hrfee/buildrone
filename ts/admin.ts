@@ -308,7 +308,7 @@ const loadRepos = (): void => _get('/repos', null, function (): void {
     if (this.readyState == 4 && this.status == 200) {
         repoList = this.response;
         for (const key of Object.keys(repoList)) {
-            repoList[key].LatestPush.Date = new Date(repoList[key].LatestPush.Date);
+            repoList[key].LatestPush.Date = new Date(repoList[key].LatestPush.Date as any);
             repoOrder.push(key);
         }
         repoOrder = repoOrder.sort((a: string, b: string): any => {

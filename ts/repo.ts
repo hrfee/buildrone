@@ -142,7 +142,7 @@ const getPage = (page: number): void => _get(`${base}/repo/${namespace}/${repoNa
             const resp: BuildsDTO = this.response;
             for (const key of resp.Order) {
                 const build = resp.Builds[key];
-                build.Date = new Date(build.Date);
+                build.Date = new Date(build.Date as any);
                 buildOrder.push(key);
                 repo.Builds[key] = build;
                 contentBox.appendChild(genCard(repo, key));

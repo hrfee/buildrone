@@ -110,6 +110,7 @@ func (app *appContext) addFiles(gc *gin.Context) {
 			return
 		}
 	}
+	build.DateChanged = time.Now()
 	build.Files = commitDirectory
 	repo.Builds[commit] = build
 	app.storage[ns+"/"+name] = repo

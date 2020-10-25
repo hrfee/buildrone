@@ -2,7 +2,8 @@
 
 A small app for serving build output files publicly for Drone CI. You use it like this:
 * Once your repo is setup in drone, open the buildrone dashboard and press "Setup" on your repo. A key is generated, which you store as the `BUILDRONE_SECRET` environment variable in your Drone build settings.
-* In your drone.yml, grab the upload script from `your_buildrone_url/upload.py`, and run it to upload your files. See [here](https://github.com/hrfee/jfa-go/blob/main/.drone.yml) for an example.
+* In your drone.yml, grab the upload script from `your_buildrone_url/upload.py`, and run it to upload your files. 
+* Working example of public ui and `upload.py` usage can be found [here](https://builds.hrfee.pw/view/hrfee/jfa-go) and [here](https://github.com/hrfee/jfa-go/blob/main/.drone.yml) respectively.
 
 #### *building/installing*
 Install esbuild and ensure its in your path, and then run `make all` to get deps, compile the program and typescript, and dump everything in the `build/` folder.
@@ -32,6 +33,9 @@ Usage of buildrone:
     	use debug mode
   -host string
     	address to host app on (default "0.0.0.0")
+  -maxage string
+    	Delete files from commits once they are this old. 
+        example: 1y30d2h (m = minutes, h = hours, d = days, y = years).
   -port int
     	port to host app on (default 8062)
 ```
