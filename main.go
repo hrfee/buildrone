@@ -193,6 +193,10 @@ func (app *appContext) loadBuilds(bl map[string]Build, ns, name string) (builds 
 		if b, ok := bl[commit]; ok {
 			build.Files = b.Files
 			build.DateChanged = b.DateChanged
+			t := time.Time{}
+			if build.DateChanged == t {
+				build.DateChanged = build.Date
+			}
 			if build.Files != "" && MAXAGEDELTA(build.DateChanged) {
 				log.Printf("Removing old files for commit %s", commit)
 				os.RemoveAll(filepath.Join(STORAGE, build.Files))
