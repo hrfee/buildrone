@@ -41,7 +41,7 @@
                             <b class="navbar-brand mr-2">builds for <a href="{{ .repoLink }}">{{ .namespace }}/{{ .name }}</a></b>
                         </section>
                         <section class="navbar-section">
-                            <a class="text-gray" href="https://github.com/hrfee/buildrone">buildrone</a>
+                            <a class="text-gray" href="https://github.com/hrfee/buildrone">{{ if eq .name "buildrone" }}you already know {{ else }}buildrone {{ end }}</a>
                         </section>
                     </header>
                     <div class="container" id="content">

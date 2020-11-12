@@ -6,6 +6,7 @@ require (
 	github.com/adrg/xdg v0.2.1
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
 	github.com/drone/drone-go v1.4.0
+	github.com/evanw/esbuild v0.8.6 // indirect
 	github.com/gin-contrib/static v0.0.0-20200916080430-d45d9a37d28e
 	github.com/gin-gonic/gin v1.6.3
 	github.com/lithammer/shortuuid/v3 v3.0.4

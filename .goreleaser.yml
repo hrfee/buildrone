@@ -1,0 +1,36 @@
+project_name: buildrone
+release:
+    github:
+        owner: hrfee
+        name: buildrone
+    name_template: "v{{.Version}}"
+before:
+  hooks:
+    - go mod download
+    - go get github.com/evanw/esbuild/cmd/esbuild
+    - bash -c 'esbuild ts/* --outdir=static --minify'
+builds:
+    - dir: ./
+      env:
+        - CGO_ENABLED=0
+      goos:
+        - linux
+      goarch:
+        - amd64
+archives:
+  - replacements:
+        linux: Linux
+        amd64: x86_64
+    files:
+        - templates/*
+        - static/*
+checksum:
+    name_template: 'checksums.txt'
+snapshot:
+    name_template: "git-{{.ShortCommit}}"
+changelog:
+    sort: asc
+    filters:
+        exclude:
+            - '^docs:'
+            - '^test:'
