@@ -93,6 +93,7 @@ class BuildCard implements Build {
         const dropdown = this._card.querySelector("input.build-dropdown") as HTMLInputElement;
         const accordion = this._card.querySelector(".accordion") as HTMLDivElement;
         const fileEl = this._card.querySelector(".build-files") as HTMLUListElement;
+        const noFiles = this._card.querySelector(".build-nofiles") as HTMLParagraphElement;
         if (f && f.length != 0) {
             this._files = f;
             let fileList = '';
@@ -106,8 +107,10 @@ class BuildCard implements Build {
             dropdown.checked = (f.length <= MAXFILESOPEN);
             fileEl.innerHTML = fileList;
             accordion.style.display = "";
+            noFiles.style.display = "none";
         } else {
-            accordion.parentElement.innerHTML = `<p class="text-gray">No files published for this commit.</p>`;
+            accordion.style.display = "none";
+            noFiles.style.display = "";
         }
     }
 
@@ -127,7 +130,7 @@ class BuildCard implements Build {
                 <div class="column">
                     <div class="card-body">
                         <div class="accordion">
-                            <input type="checkbox" id="dropdown_${commit}" name="dropdown_${commit}" classlist="build-dropdown" hidden>
+                            <input type="checkbox" id="dropdown_${commit}" name="dropdown_${commit}" class="build-dropdown" hidden>
                             <label class="accordion-header" for="dropdown_${commit}">
                                 <i class="icon icon-arrow-right mr-1"></i>
                                 <a>Files</a>
@@ -136,6 +139,7 @@ class BuildCard implements Build {
                                 <ul class="menu menu-nav accordionList build-files"></ul>
                             </div>
                         </div>
+                        <p class="text-gray build-nofiles">No files published for this commit.</p>
                     </div>
                 <div>
             </div>
@@ -219,7 +223,6 @@ _get(`${base}/repo/${namespace}/${repoName}`, null, function (): void {
     if (this.readyState == 4 && this.status == 200) {
         repo = this.response as Repo;
         repo.Builds = {};
-        console.log(repo.Branches);
         for (let branch of repo.Branches) {
             if (branch == "main" || branch == "master") {
                 branchTabs.addTab(branch);
