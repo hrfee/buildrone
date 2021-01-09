@@ -19,3 +19,4 @@ copy:
 	cp -r templates static build/
 
 all: typescript compile copy
+debug: ts-debug compile copy

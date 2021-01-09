@@ -38,7 +38,7 @@
                 <div class="column col-8 col-mx-auto">
                     <header class="navbar">
                         <section class="navbar-section">
-                            <b class="navbar-brand mr-2">builds for <a href="{{ .repoLink }}">{{ .namespace }}/{{ .name }}</a></b>
+                            <b class="navbar-brand mr-2">builds for <a href="{{ .repoLink }}">{{ .namespace }}/{{ .name }}</a> from branch <span id="branch-area"></span></b>
                         </section>
                         <section class="navbar-section">
                             <a class="text-gray" href="https://github.com/hrfee/buildrone">{{ if eq .name "buildrone" }}you already know {{ else }}buildrone {{ end }}</a>

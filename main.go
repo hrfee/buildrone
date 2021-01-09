@@ -80,6 +80,7 @@ func parseMaxAge(maxage string) (f maxAgeDelta) {
 
 type Build struct {
 	ID          int64
+	Branch      string
 	Name        string // commit line
 	Date        time.Time
 	DateChanged time.Time
@@ -91,6 +92,7 @@ type Build struct {
 type Repo struct {
 	Namespace, Name, Link string
 	Builds                map[string]Build // map[commitHash]
+	Branches              []string
 	Secret                string
 }
 
@@ -111,6 +113,7 @@ type RepoDTO struct {
 	LatestCommit   string
 	LatestPush     BuildDTO
 	Secret         bool
+	Branches       []string
 }
 
 type BuildDTO struct {
@@ -120,6 +123,7 @@ type BuildDTO struct {
 	Files   []FileDTO // `json:"files"`
 	Link    string    // `json:"link"`
 	Message string
+	Branch  string // `json:"branch"`
 }
 
 type FileDTO struct {
@@ -176,7 +180,7 @@ type NewKeyRespDTO struct {
 	Key string
 }
 
-func (app *appContext) loadBuilds(bl map[string]Build, ns, name string) (builds map[string]Build, err error) {
+func (app *appContext) loadBuilds(bl map[string]Build, ns, name string) (builds map[string]Build, branches []string, err error) {
 	dBuildList, err := app.client.BuildList(ns, name, drone.ListOptions{Page: 1, Size: 500})
 	if err != nil {
 		return
@@ -185,10 +189,26 @@ func (app *appContext) loadBuilds(bl map[string]Build, ns, name string) (builds 
 	for _, dBuild := range dBuildList {
 		commit := dBuild.After
 		build := Build{
-			ID:   dBuild.ID,
-			Name: strings.Split(dBuild.Message, "\n")[0],
-			Date: time.Unix(dBuild.Updated, 0),
-			Link: dBuild.Link,
+			ID:     dBuild.ID,
+			Name:   strings.Split(dBuild.Message, "\n")[0],
+			Date:   time.Unix(dBuild.Updated, 0),
+			Link:   dBuild.Link,
+			Branch: dBuild.Target,
+		}
+		if build.Branch == "" {
+			build.Branch = dBuild.Source
+		}
+		if build.Branch != "" {
+			exists := false
+			for _, v := range branches {
+				if v == build.Branch {
+					exists = true
+					break
+				}
+			}
+			if !exists {
+				branches = append(branches, build.Branch)
+			}
 		}
 		if b, ok := bl[commit]; ok {
 			build.Files = b.Files
@@ -238,9 +258,10 @@ func setKey(config *ini.File, key, value, comment string) {
 func (app *appContext) loadAllBuilds() {
 	for n, repo := range app.storage {
 		log.Printf("Loading builds for %s/%s", repo.Namespace, repo.Name)
-		builds, err := app.loadBuilds(repo.Builds, repo.Namespace, repo.Name)
+		builds, branches, err := app.loadBuilds(repo.Builds, repo.Namespace, repo.Name)
 		if err == nil {
 			repo.Builds = builds
+			repo.Branches = branches
 			app.storage[n] = repo
 		}
 	}

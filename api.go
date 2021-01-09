@@ -94,7 +94,7 @@ func (app *appContext) addFiles(gc *gin.Context) {
 	os.Mkdir(filepath.Join(STORAGE, ns), os.FileMode(DIRPERM))
 	os.Mkdir(filepath.Join(STORAGE, ns, name), os.FileMode(DIRPERM))
 	repo := app.storage[ns+"/"+name]
-	repo.Builds, err = app.loadBuilds(repo.Builds, ns, name)
+	repo.Builds, repo.Branches, err = app.loadBuilds(repo.Builds, ns, name)
 	if err != nil {
 		end(500, fmt.Sprintf("Couldn't get builds: %s", err), gc)
 		return
@@ -193,10 +193,11 @@ func (app *appContext) getBuilds(gc *gin.Context) {
 	i := 0
 	for c, b := range repo.Builds {
 		dto := BuildDTO{
-			ID:   b.ID,
-			Name: b.Name,
-			Link: b.Link,
-			Date: b.Date,
+			ID:     b.ID,
+			Name:   b.Name,
+			Link:   b.Link,
+			Date:   b.Date,
+			Branch: b.Branch,
 		}
 		if b.Files != "" {
 			files, err := ioutil.ReadDir(filepath.Join(STORAGE, b.Files))
@@ -246,6 +247,7 @@ func (app *appContext) getRepo(gc *gin.Context) {
 		Namespace:      namespace,
 		Name:           name,
 		BuildPageCount: roundPageCount(uint(len(repo.Builds))),
+		Branches:       repo.Branches,
 	}
 	gc.JSON(200, resp)
 }
