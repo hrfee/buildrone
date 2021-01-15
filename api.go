@@ -100,7 +100,11 @@ func (app *appContext) addFiles(gc *gin.Context) {
 		return
 	}
 	commitDirectory := filepath.Join(ns, name, commit)
-	os.Mkdir(filepath.Join(STORAGE, commitDirectory), os.FileMode(DIRPERM))
+	err = os.MkdirAll(filepath.Join(STORAGE, commitDirectory), os.FileMode(DIRPERM))
+	if err != nil {
+		end(500, fmt.Sprintf("Couldn't create directory: %s", err), gc)
+		return
+	}
 	build := repo.Builds[commit]
 	for fname, file := range files {
 		buildFolder := filepath.Join(STORAGE, commitDirectory, fname)
