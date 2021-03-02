@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -94,7 +95,7 @@ func (app *appContext) addFiles(gc *gin.Context) {
 	os.Mkdir(filepath.Join(STORAGE, ns), os.FileMode(DIRPERM))
 	os.Mkdir(filepath.Join(STORAGE, ns, name), os.FileMode(DIRPERM))
 	repo := app.storage[ns+"/"+name]
-	repo.Builds, repo.Branches, err = app.loadBuilds(repo.Builds, ns, name)
+	repo.Builds, repo.Branches, repo.LatestBuild, err = app.loadBuilds(repo.Builds, ns, name)
 	if err != nil {
 		end(500, fmt.Sprintf("Couldn't get builds: %s", err), gc)
 		return
@@ -254,6 +255,60 @@ func (app *appContext) getRepo(gc *gin.Context) {
 		Branches:       repo.Branches,
 	}
 	gc.JSON(200, resp)
+}
+
+func (app *appContext) LatestCommit(gc *gin.Context) {
+	namespace := gc.Param("namespace")
+	name := gc.Param("name")
+	repo, ok := app.storage[namespace+"/"+name]
+	if !ok {
+		end(400, fmt.Sprintf("Repository not found: %s/%s", namespace, name), gc)
+		return
+	}
+	build, ok := repo.Builds[repo.LatestBuild]
+	if !ok {
+		end(500, "Couldn't find latest build", gc)
+		return
+	}
+	gc.JSON(200, BuildDTO{
+		ID:     build.ID,
+		Name:   build.Name,
+		Link:   build.Link,
+		Date:   build.Date,
+		Branch: build.Branch,
+	})
+}
+
+func (app *appContext) findLatest(gc *gin.Context) {
+	namespace := gc.Param("namespace")
+	name := gc.Param("name")
+	search := strings.ToLower(gc.Param("search"))
+	if search == "" {
+		end(400, "No file name/query provided", gc)
+		return
+	}
+	repo, ok := app.storage[namespace+"/"+name]
+	if !ok {
+		end(400, fmt.Sprintf("Repository not found: %s/%s", namespace, name), gc)
+		return
+	}
+	build, ok := repo.Builds[repo.LatestBuild]
+	if !ok {
+		end(500, "Couldn't find latest build", gc)
+		return
+	}
+	files, err := os.ReadDir(build.Files)
+	if err != nil {
+		end(500, "Couldn't read directory", gc)
+		return
+	}
+	for _, file := range files {
+		if strings.Contains(strings.ToLower(file.Name()), search) {
+			gc.FileFromFS(filepath.Join(build.Files, file.Name()), app.fs)
+			return
+		}
+	}
+	end(500, "No matching file found", gc)
 }
 
 func (app *appContext) getFile(gc *gin.Context) {

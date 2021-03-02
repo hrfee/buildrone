@@ -90,10 +90,10 @@ type Build struct {
 }
 
 type Repo struct {
-	Namespace, Name, Link string
-	Builds                map[string]Build // map[commitHash]
-	Branches              []string
-	Secret                string
+	Namespace, Name, Link, LatestBuild string
+	Builds                             map[string]Build // map[commitHash]
+	Branches                           []string
+	Secret                             string
 }
 
 type appContext struct {
@@ -180,11 +180,12 @@ type NewKeyRespDTO struct {
 	Key string
 }
 
-func (app *appContext) loadBuilds(bl map[string]Build, ns, name string) (builds map[string]Build, branches []string, err error) {
+func (app *appContext) loadBuilds(bl map[string]Build, ns, name string) (builds map[string]Build, branches []string, latestNonEmptyBuild string, err error) {
 	dBuildList, err := app.client.BuildList(ns, name, drone.ListOptions{Page: 1, Size: 500})
 	if err != nil {
 		return
 	}
+	latestTime := time.Time{}
 	builds = map[string]Build{}
 	for _, dBuild := range dBuildList {
 		commit := dBuild.After
@@ -223,6 +224,12 @@ func (app *appContext) loadBuilds(bl map[string]Build, ns, name string) (builds 
 				build.Files = ""
 			}
 		}
+		if build.Date.After(latestTime) && build.Files != "" {
+			if d, err := os.ReadDir(build.Files); err == nil && len(d) != 0 {
+				latestTime = build.Date
+				latestNonEmptyBuild = commit
+			}
+		}
 		builds[commit] = build
 	}
 	return
@@ -258,8 +265,9 @@ func setKey(config *ini.File, key, value, comment string) {
 func (app *appContext) loadAllBuilds() {
 	for n, repo := range app.storage {
 		log.Printf("Loading builds for %s/%s", repo.Namespace, repo.Name)
-		builds, branches, err := app.loadBuilds(repo.Builds, repo.Namespace, repo.Name)
+		builds, branches, latest, err := app.loadBuilds(repo.Builds, repo.Namespace, repo.Name)
 		if err == nil {
+			repo.LatestBuild = latest
 			repo.Builds = builds
 			repo.Branches = branches
 			app.storage[n] = repo
@@ -370,6 +378,8 @@ func main() {
 	router.Use(static.Serve("/", static.LocalFile(filepath.Join(filepath.Dir(executable), "static"), false)))
 	router.GET("/repo/:namespace/:name/token", app.getBuildToken)
 	router.GET("/repo/:namespace/:name/build/:build/:file", app.getFile)
+	router.GET("/repo/:namespace/:name/latest/file/:search", app.findLatest)
+	router.GET("/repo/:namespace/:name/latest", app.LatestCommit)
 	router.GET("/repo/:namespace/:name/builds/:page", app.getBuilds)
 	router.GET("/repo/:namespace/:name", app.getRepo)
 	router.GET("/", func(gc *gin.Context) {
