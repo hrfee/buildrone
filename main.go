@@ -224,8 +224,9 @@ func (app *appContext) loadBuilds(bl map[string]Build, ns, name string) (builds 
 				build.Files = ""
 			}
 		}
+		fmt.Println(latestTime, build.Date)
 		if build.Date.After(latestTime) && build.Files != "" {
-			if d, err := os.ReadDir(build.Files); err == nil && len(d) != 0 {
+			if d, err := os.ReadDir(filepath.Join(STORAGE, build.Files)); err == nil && len(d) != 0 {
 				latestTime = build.Date
 				latestNonEmptyBuild = commit
 			}

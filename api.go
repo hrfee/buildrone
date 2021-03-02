@@ -297,14 +297,14 @@ func (app *appContext) findLatest(gc *gin.Context) {
 		end(500, "Couldn't find latest build", gc)
 		return
 	}
-	files, err := os.ReadDir(build.Files)
+	files, err := os.ReadDir(filepath.Join(STORAGE, build.Files))
 	if err != nil {
 		end(500, "Couldn't read directory", gc)
 		return
 	}
 	for _, file := range files {
 		if strings.Contains(strings.ToLower(file.Name()), search) {
-			gc.FileFromFS(filepath.Join(build.Files, file.Name()), app.fs)
+			gc.FileAttachment(filepath.Join(STORAGE, build.Files, file.Name()), file.Name())
 			return
 		}
 	}
