@@ -61,10 +61,81 @@ func (app *appContext) NewKey(gc *gin.Context) {
 	gc.JSON(200, NewKeyRespDTO{Key: key})
 }
 
+func (app *appContext) SetTag(gc *gin.Context) {
+	var req Tag
+	gc.BindJSON(&req)
+	namespace := gc.Param("namespace")
+	name := gc.Param("name")
+	commit := gc.Param("commit")
+	tagName := gc.Param("tag")
+	repo, ok := app.storage[namespace+"/"+name]
+	if !ok {
+		end(400, fmt.Sprintf("Repository not found: %s/%s", namespace, name), gc)
+		return
+	}
+	var err error
+	repo.Builds, repo.Branches, repo.LatestBuild, repo.LatestNonEmptyBuild, err = app.loadBuilds(repo.Builds, namespace, name)
+	if err != nil {
+		end(500, "Couldn't load builds", gc)
+		return
+	}
+	build, ok := repo.Builds[commit]
+	if !ok {
+		end(400, fmt.Sprintf("Commit not found: %s", commit), gc)
+		return
+	}
+	tag, ok := build.Tags[tagName]
+	if !ok {
+		tag = req
+	} else {
+		if req.Version != "" && req.Version != tag.Version {
+			tag.Version = req.Version
+		}
+		t := Time{}
+		if req.ReleaseDate != t && req.ReleaseDate != tag.ReleaseDate {
+			tag.ReleaseDate = req.ReleaseDate
+		}
+		tag.Ready = req.Ready
+	}
+	if build.Tags == nil {
+		build.Tags = map[string]Tag{}
+	}
+	build.Tags[tagName] = tag
+	repo.Builds[commit] = build
+	app.storage[namespace+"/"+name] = repo
+	app.store()
+	end(200, "Tag stored", gc)
+}
+
+func (app *appContext) GetTag(gc *gin.Context) {
+	namespace := gc.Param("namespace")
+	name := gc.Param("name")
+	commit := gc.Param("build")
+	tagName := gc.Param("tag")
+	repo, ok := app.storage[namespace+"/"+name]
+	if !ok {
+		end(400, fmt.Sprintf("Repository not found: %s/%s", namespace, name), gc)
+		return
+	}
+	if commit == "latest" {
+		commit = repo.LatestBuild
+	}
+	build, ok := repo.Builds[commit]
+	if !ok {
+		end(400, "Couldn't get build", gc)
+		return
+	}
+	tag, ok := build.Tags[tagName]
+	if !ok {
+		tag = Tag{}
+	}
+	gc.JSON(200, tag)
+}
+
 func (app *appContext) addFiles(gc *gin.Context) {
 	ns := gc.Param("namespace")
 	name := gc.Param("name")
-	commit := gc.PostForm("commit")
+	commit := gc.Param("commit")
 
 	form, err := gc.MultipartForm()
 	if err != nil {
@@ -95,7 +166,7 @@ func (app *appContext) addFiles(gc *gin.Context) {
 	os.Mkdir(filepath.Join(STORAGE, ns), os.FileMode(DIRPERM))
 	os.Mkdir(filepath.Join(STORAGE, ns, name), os.FileMode(DIRPERM))
 	repo := app.storage[ns+"/"+name]
-	repo.Builds, repo.Branches, repo.LatestBuild, err = app.loadBuilds(repo.Builds, ns, name)
+	repo.Builds, repo.Branches, repo.LatestBuild, repo.LatestNonEmptyBuild, err = app.loadBuilds(repo.Builds, ns, name)
 	if err != nil {
 		end(500, fmt.Sprintf("Couldn't get builds: %s", err), gc)
 		return
@@ -172,6 +243,29 @@ func (sb SortableBuilds) Less(i, j int) bool {
 type BuildsDTO struct {
 	Order  []string
 	Builds map[string]BuildDTO
+}
+
+func (app *appContext) getBuild(gc *gin.Context) {
+	namespace := gc.Param("namespace")
+	name := gc.Param("name")
+	commit := gc.Param("build")
+	repo, ok := app.storage[namespace+"/"+name]
+	if !ok {
+		end(400, fmt.Sprintf("Repository not found: %s/%s", namespace, name), gc)
+		return
+	}
+	build, ok := repo.Builds[commit]
+	if !ok {
+		end(400, "Build not found", gc)
+		return
+	}
+	gc.JSON(200, BuildDTO{
+		ID:     build.ID,
+		Name:   build.Name,
+		Link:   build.Link,
+		Date:   build.Date,
+		Branch: build.Branch,
+	})
 }
 
 func (app *appContext) getBuilds(gc *gin.Context) {
@@ -265,7 +359,7 @@ func (app *appContext) LatestCommit(gc *gin.Context) {
 		end(400, fmt.Sprintf("Repository not found: %s/%s", namespace, name), gc)
 		return
 	}
-	build, ok := repo.Builds[repo.LatestBuild]
+	build, ok := repo.Builds[repo.LatestNonEmptyBuild]
 	if !ok {
 		end(500, "Couldn't find latest build", gc)
 		return
@@ -292,7 +386,7 @@ func (app *appContext) findLatest(gc *gin.Context) {
 		end(400, fmt.Sprintf("Repository not found: %s/%s", namespace, name), gc)
 		return
 	}
-	build, ok := repo.Builds[repo.LatestBuild]
+	build, ok := repo.Builds[repo.LatestNonEmptyBuild]
 	if !ok {
 		end(500, "Couldn't find latest build", gc)
 		return

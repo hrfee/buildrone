@@ -78,6 +78,14 @@ func parseMaxAge(maxage string) (f maxAgeDelta) {
 	return
 }
 
+// Tags are used for non-buildrone builds to tell apps that the specific update is ready, along with providing basic info. App is meant to do the heavylifting in terms of actually acquiring the build.
+// Created on-the-fly by upload.py
+type Tag struct {
+	Ready       bool   `json:"ready"`             // Whether or not build on this tag has completed.
+	Version     string `json:"version,omitempty"` // Version/Commit
+	ReleaseDate Time   `json:"date"`
+}
+
 type Build struct {
 	ID          int64
 	Branch      string
@@ -87,13 +95,14 @@ type Build struct {
 	Files       string
 	Link        string
 	Message     string
+	Tags        map[string]Tag
 }
 
 type Repo struct {
-	Namespace, Name, Link, LatestBuild string
-	Builds                             map[string]Build // map[commitHash]
-	Branches                           []string
-	Secret                             string
+	Namespace, Name, Link, LatestBuild, LatestNonEmptyBuild string
+	Builds                                                  map[string]Build // map[commitHash]
+	Branches                                                []string
+	Secret                                                  string
 }
 
 type appContext struct {
@@ -124,6 +133,7 @@ type BuildDTO struct {
 	Link    string    // `json:"link"`
 	Message string
 	Branch  string // `json:"branch"`
+	Tags    map[string]Tag
 }
 
 type FileDTO struct {
@@ -180,12 +190,13 @@ type NewKeyRespDTO struct {
 	Key string
 }
 
-func (app *appContext) loadBuilds(bl map[string]Build, ns, name string) (builds map[string]Build, branches []string, latestNonEmptyBuild string, err error) {
+func (app *appContext) loadBuilds(bl map[string]Build, ns, name string) (builds map[string]Build, branches []string, latestBuild string, latestNonEmptyBuild string, err error) {
 	dBuildList, err := app.client.BuildList(ns, name, drone.ListOptions{Page: 1, Size: 500})
 	if err != nil {
 		return
 	}
 	latestTime := time.Time{}
+	latestNETime := time.Time{}
 	builds = map[string]Build{}
 	for _, dBuild := range dBuildList {
 		commit := dBuild.After
@@ -214,6 +225,7 @@ func (app *appContext) loadBuilds(bl map[string]Build, ns, name string) (builds 
 		if b, ok := bl[commit]; ok {
 			build.Files = b.Files
 			build.DateChanged = b.DateChanged
+			build.Tags = b.Tags
 			t := time.Time{}
 			if build.DateChanged == t {
 				build.DateChanged = build.Date
@@ -224,10 +236,13 @@ func (app *appContext) loadBuilds(bl map[string]Build, ns, name string) (builds 
 				build.Files = ""
 			}
 		}
-		fmt.Println(latestTime, build.Date)
-		if build.Date.After(latestTime) && build.Files != "" {
+		if build.Date.After(latestTime) {
+			latestTime = build.Date
+			latestBuild = commit
+		}
+		if build.Date.After(latestNETime) && build.Files != "" {
 			if d, err := os.ReadDir(filepath.Join(STORAGE, build.Files)); err == nil && len(d) != 0 {
-				latestTime = build.Date
+				latestNETime = build.Date
 				latestNonEmptyBuild = commit
 			}
 		}
@@ -266,9 +281,10 @@ func setKey(config *ini.File, key, value, comment string) {
 func (app *appContext) loadAllBuilds() {
 	for n, repo := range app.storage {
 		log.Printf("Loading builds for %s/%s", repo.Namespace, repo.Name)
-		builds, branches, latest, err := app.loadBuilds(repo.Builds, repo.Namespace, repo.Name)
+		builds, branches, latest, latestNE, err := app.loadBuilds(repo.Builds, repo.Namespace, repo.Name)
 		if err == nil {
 			repo.LatestBuild = latest
+			repo.LatestNonEmptyBuild = latestNE
 			repo.Builds = builds
 			repo.Branches = branches
 			app.storage[n] = repo
@@ -378,9 +394,11 @@ func main() {
 	router.LoadHTMLGlob(filepath.Join(filepath.Dir(executable), "templates/*"))
 	router.Use(static.Serve("/", static.LocalFile(filepath.Join(filepath.Dir(executable), "static"), false)))
 	router.GET("/repo/:namespace/:name/token", app.getBuildToken)
+	router.GET("/repo/:namespace/:name/tag/:build/:tag", app.GetTag)
 	router.GET("/repo/:namespace/:name/build/:build/:file", app.getFile)
 	router.GET("/repo/:namespace/:name/latest/file/:search", app.findLatest)
 	router.GET("/repo/:namespace/:name/latest", app.LatestCommit)
+	router.GET("/repo/:namespace/:name/build/:build", app.getBuild)
 	router.GET("/repo/:namespace/:name/builds/:page", app.getBuilds)
 	router.GET("/repo/:namespace/:name", app.getRepo)
 	router.GET("/", func(gc *gin.Context) {
@@ -404,8 +422,17 @@ func main() {
 	adminAPI := router.Group("/", app.webAuth())
 	adminAPI.GET("/repos", app.getRepos)
 	adminAPI.POST("/repo/:namespace/:name/key", app.NewKey)
+	handler := func(gc *gin.Context) {
+		query := gc.Param("query")
+		if query == "add" {
+			app.addFiles(gc)
+		} else if query == "tag" {
+			app.SetTag(gc)
+		}
+	}
 	buildAPI := router.Group("/", app.buildAuth())
-	buildAPI.POST("/repo/:namespace/:name/add", app.addFiles)
+	buildAPI.POST("/repo/:namespace/:name/commit/:commit/:query", handler)
+	buildAPI.POST("/repo/:namespace/:name/commit/:commit/:query/:tag", handler)
 	srv := &http.Server{
 		Addr:    fmt.Sprintf("%s:%d", SERVE, PORT),
 		Handler: router,
