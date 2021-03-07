@@ -72,13 +72,6 @@ def tag(namespace, repo, commit, tagName, ready):
     print(f"Status {req}")
 
 
-if args.tag:
-    (tagName, stateStr) = args.tag.split("=")
-    state = False
-    if stateStr == "true":
-        state = True
-    tag(args.namespace, args.repo, commit, tagName, state)
-
 if args.upload:
     for name in args.upload:
         if os.path.isdir(name):
@@ -90,3 +83,10 @@ if args.upload:
             )
         else:
             upload([name], args.namespace, args.repo, commit)
+
+if args.tag:
+    (tagName, stateStr) = args.tag.split("=")
+    state = False
+    if stateStr == "true":
+        state = True
+    tag(args.namespace, args.repo, commit, tagName, state)
