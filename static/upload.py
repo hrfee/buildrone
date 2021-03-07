@@ -58,12 +58,7 @@ def upload(filenames, namespace, repo, commit):
 
 
 def tag(namespace, repo, commit, tagName, ready):
-    try:
-        version = subprocess.check_output(
-            "git describe --exact-match HEAD".split()
-        ).decode("utf-8")
-    except subprocess.CalledProcessError:
-        version = commit
+    version = commit
     req = requests.post(
         f"{args.url}/repo/{namespace}/{repo}/commit/{commit}/tag/{tagName}",
         headers=tokenHeader,
