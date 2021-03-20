@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/gob"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"log"
@@ -106,12 +107,13 @@ type Repo struct {
 }
 
 type appContext struct {
-	config   *ini.File
-	client   drone.Client
-	storage  map[string]Repo
-	fs       http.FileSystem
-	Username string
-	Password string
+	config    *ini.File
+	client    drone.Client
+	storage   map[string]Repo
+	fs        http.FileSystem
+	Username  string
+	Password  string
+	loggedIPs map[string][]time.Time
 }
 
 type RepoDTO struct {
@@ -340,6 +342,7 @@ func main() {
 		setKey(tempConfig, "max_file_age", "1y", "Maximum age of files on a commit. example: 1y30d2h (y = years, d = days, h = hours, m = minutes).")
 		setKey(tempConfig, "username", "your username", "Web UI username.")
 		setKey(tempConfig, "password_hash", "", "Web UI password hash. Generate by running \"buildrone password\".")
+		setKey(tempConfig, "user_log", "", "Path to file to log salted hashes of IPs of users downloading or getting tags. Leave blank to disable.")
 		err = tempConfig.SaveTo(CONFIG)
 		if err != nil {
 			log.Fatalf("Failed to save template config at \"%s\"", CONFIG)
@@ -373,6 +376,24 @@ func main() {
 			AccessToken: TOKEN,
 		},
 	)
+
+	func() {
+		app.loggedIPs = map[string][]time.Time{}
+		path := app.config.Section("").Key("user_log").String()
+		if path == "" {
+			return
+		}
+		d, err := os.ReadFile(path)
+		if err != nil {
+			log.Printf("Failed to read user log: %v", err)
+			return
+		}
+		err = json.Unmarshal(d, &app.loggedIPs)
+		if err != nil {
+			log.Printf("Failed to load user log: %v", err)
+			return
+		}
+	}()
 
 	app.client = drone.NewClient(HOST, auth)
 	app.read()

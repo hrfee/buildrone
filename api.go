@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -14,6 +15,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/lithammer/shortuuid/v3"
+	"golang.org/x/crypto/bcrypt"
 )
 
 func (app *appContext) NewKey(gc *gin.Context) {
@@ -130,6 +132,39 @@ func (app *appContext) GetTag(gc *gin.Context) {
 		tag = Tag{}
 	}
 	gc.JSON(200, tag)
+	app.logIP(gc.ClientIP())
+}
+
+func (app *appContext) logIP(ip string) {
+	path := app.config.Section("").Key("user_log").String()
+	if path == "" {
+		return
+	}
+	found := false
+	for ipHash, dates := range app.loggedIPs {
+		if err := bcrypt.CompareHashAndPassword([]byte(ipHash), []byte(ip)); err == nil {
+			found = true
+			app.loggedIPs[ipHash] = append(dates, time.Now())
+			break
+		}
+	}
+	if !found {
+		hash, err := bcrypt.GenerateFromPassword([]byte(ip), bcrypt.DefaultCost)
+		if err != nil {
+			log.Printf("Failed to hash IP: %v", err)
+			return
+		}
+		app.loggedIPs[string(hash)] = []time.Time{time.Now()}
+	}
+	data, err := json.MarshalIndent(app.loggedIPs, "", "\t")
+	if err != nil {
+		log.Printf("Failed to marshal IP log: %v", err)
+		return
+	}
+	err = os.WriteFile(path, data, 0644)
+	if err != nil {
+		log.Printf("Failed to write to user log file \"%s\": %v", path, err)
+	}
 }
 
 func (app *appContext) addFiles(gc *gin.Context) {
@@ -403,6 +438,7 @@ func (app *appContext) findLatest(gc *gin.Context) {
 		}
 	}
 	end(500, "No matching file found", gc)
+	app.logIP(gc.ClientIP())
 }
 
 func (app *appContext) getFile(gc *gin.Context) {
@@ -426,4 +462,5 @@ func (app *appContext) getFile(gc *gin.Context) {
 		return
 	}
 	gc.FileFromFS(path, app.fs)
+	app.logIP(gc.ClientIP())
 }
