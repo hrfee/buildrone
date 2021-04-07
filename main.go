@@ -1,6 +1,7 @@
 package main
 
 import (
+	"crypto/sha256"
 	"encoding/gob"
 	"encoding/json"
 	"flag"
@@ -18,7 +19,6 @@ import (
 	"github.com/gin-contrib/static"
 	"github.com/gin-gonic/gin"
 	"github.com/lithammer/shortuuid/v3"
-	"golang.org/x/crypto/bcrypt"
 	"golang.org/x/crypto/ssh/terminal"
 	"golang.org/x/oauth2"
 	"gopkg.in/ini.v1"
@@ -309,20 +309,17 @@ func (app *appContext) ipLogger() {
 			return
 		}
 		found := false
-		for ipHash, dates := range app.loggedIPs {
-			if err := bcrypt.CompareHashAndPassword([]byte(ipHash), []byte(ip)); err == nil {
+		hashBytes := sha256.Sum256([]byte(ip))
+		hash := string(hashBytes[:])
+		for ipHash := range app.loggedIPs {
+			if ipHash == hash {
 				found = true
-				app.loggedIPs[ipHash] = append(dates, time.Now())
+				app.loggedIPs[ipHash] = append(app.loggedIPs[ipHash], time.Now())
 				break
 			}
 		}
 		if !found {
-			hash, err := bcrypt.GenerateFromPassword([]byte(ip), bcrypt.DefaultCost)
-			if err != nil {
-				log.Printf("Failed to hash IP: %v", err)
-				return
-			}
-			app.loggedIPs[string(hash)] = []time.Time{time.Now()}
+			app.loggedIPs[hash] = []time.Time{time.Now()}
 		}
 		data, err := json.MarshalIndent(app.loggedIPs, "", "\t")
 		if err != nil {
