@@ -18,6 +18,7 @@ import (
 	"github.com/gin-contrib/static"
 	"github.com/gin-gonic/gin"
 	"github.com/lithammer/shortuuid/v3"
+	"golang.org/x/crypto/bcrypt"
 	"golang.org/x/crypto/ssh/terminal"
 	"golang.org/x/oauth2"
 	"gopkg.in/ini.v1"
@@ -114,6 +115,7 @@ type appContext struct {
 	Username  string
 	Password  string
 	loggedIPs map[string][]time.Time
+	ips       chan string
 }
 
 type RepoDTO struct {
@@ -295,6 +297,45 @@ func (app *appContext) loadAllBuilds() {
 	app.store()
 }
 
+func (app *appContext) ipLogger() {
+	log.Println("Starting IP Logger")
+	path := app.config.Section("").Key("user_log").String()
+	if path == "" {
+		return
+	}
+	for ip := range app.ips {
+		if ip == "stop" {
+			log.Println("Stopping IP Logger")
+			return
+		}
+		found := false
+		for ipHash, dates := range app.loggedIPs {
+			if err := bcrypt.CompareHashAndPassword([]byte(ipHash), []byte(ip)); err == nil {
+				found = true
+				app.loggedIPs[ipHash] = append(dates, time.Now())
+				break
+			}
+		}
+		if !found {
+			hash, err := bcrypt.GenerateFromPassword([]byte(ip), bcrypt.DefaultCost)
+			if err != nil {
+				log.Printf("Failed to hash IP: %v", err)
+				return
+			}
+			app.loggedIPs[string(hash)] = []time.Time{time.Now()}
+		}
+		data, err := json.MarshalIndent(app.loggedIPs, "", "\t")
+		if err != nil {
+			log.Printf("Failed to marshal IP log: %v", err)
+			return
+		}
+		err = os.WriteFile(path, data, 0644)
+		if err != nil {
+			log.Printf("Failed to write to user log file \"%s\": %v", path, err)
+		}
+	}
+}
+
 func main() {
 	if len(os.Args) > 1 && os.Args[1] == "password" {
 		fmt.Print("Enter your new password: ")
@@ -377,13 +418,14 @@ func main() {
 		},
 	)
 
+	app.ips = make(chan string)
+	ipPath := app.config.Section("").Key("user_log").String()
 	func() {
 		app.loggedIPs = map[string][]time.Time{}
-		path := app.config.Section("").Key("user_log").String()
-		if path == "" {
+		if ipPath == "" {
 			return
 		}
-		d, err := os.ReadFile(path)
+		d, err := os.ReadFile(ipPath)
 		if err != nil {
 			log.Printf("Failed to read user log: %v", err)
 			return
@@ -394,6 +436,12 @@ func main() {
 			return
 		}
 	}()
+	if ipPath != "" {
+		go app.ipLogger()
+		defer func() {
+			app.ips <- "stop"
+		}()
+	}
 
 	app.client = drone.NewClient(HOST, auth)
 	app.read()
