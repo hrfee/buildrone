@@ -3,3 +3,4 @@ notes
 static/ts/*
 static/*.js*
 build/
+storage.gob
