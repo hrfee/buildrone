@@ -134,6 +134,9 @@ func (app *appContext) GetTag(gc *gin.Context) {
 }
 
 func (app *appContext) logIP(ip string) {
+	if !LOGIPS {
+		return
+	}
 	app.ips <- ip
 }
 

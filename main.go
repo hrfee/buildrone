@@ -38,6 +38,7 @@ var (
 	PORT          = 8062
 	MAXAGE        = ""
 	MAXAGEDELTA   maxAgeDelta
+	LOGIPS        = false
 )
 
 func parseNum(str string, d string) int {
@@ -434,6 +435,7 @@ func main() {
 		}
 	}()
 	if ipPath != "" {
+		LOGIPS = true
 		go app.ipLogger()
 		defer func() {
 			app.ips <- "stop"
@@ -454,7 +456,6 @@ func main() {
 		gin.SetMode(gin.ReleaseMode)
 	}
 	router := gin.New()
-
 	router.Use(gin.Recovery())
 	executable, _ := os.Executable()
 	router.LoadHTMLGlob(filepath.Join(filepath.Dir(executable), "templates/*"))
@@ -511,6 +512,7 @@ func main() {
 			app.loadAllBuilds()
 		}
 	}()
-	srv.ListenAndServe()
-
+	if err := srv.ListenAndServe(); err != nil {
+		log.Fatalln("Failed to serve:", err)
+	}
 }
