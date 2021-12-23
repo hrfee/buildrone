@@ -1,9 +1,7 @@
 package main
 
 import (
-	"crypto/sha256"
 	"encoding/gob"
-	"encoding/json"
 	"flag"
 	"fmt"
 	"log"
@@ -109,14 +107,13 @@ type Repo struct {
 }
 
 type appContext struct {
-	config    *ini.File
-	client    drone.Client
-	storage   map[string]Repo
-	fs        http.FileSystem
-	Username  string
-	Password  string
-	loggedIPs map[string][]time.Time
-	ips       chan string
+	config   *ini.File
+	client   drone.Client
+	storage  map[string]Repo
+	fs       http.FileSystem
+	Username string
+	Password string
+	logTo    string
 }
 
 type RepoDTO struct {
@@ -298,42 +295,6 @@ func (app *appContext) loadAllBuilds() {
 	app.store()
 }
 
-func (app *appContext) ipLogger() {
-	log.Println("Starting IP Logger")
-	path := app.config.Section("").Key("user_log").String()
-	if path == "" {
-		return
-	}
-	for ip := range app.ips {
-		if ip == "stop" {
-			log.Println("Stopping IP Logger")
-			return
-		}
-		found := false
-		hashBytes := sha256.Sum256([]byte(ip))
-		hash := string(hashBytes[:])
-		for ipHash := range app.loggedIPs {
-			if ipHash == hash {
-				found = true
-				app.loggedIPs[ipHash] = append(app.loggedIPs[ipHash], time.Now())
-				break
-			}
-		}
-		if !found {
-			app.loggedIPs[hash] = []time.Time{time.Now()}
-		}
-		data, err := json.MarshalIndent(app.loggedIPs, "", "\t")
-		if err != nil {
-			log.Printf("Failed to marshal IP log: %v", err)
-			return
-		}
-		err = os.WriteFile(path, data, 0644)
-		if err != nil {
-			log.Printf("Failed to write to user log file \"%s\": %v", path, err)
-		}
-	}
-}
-
 func main() {
 	if len(os.Args) > 1 && os.Args[1] == "password" {
 		fmt.Print("Enter your new password: ")
@@ -381,7 +342,7 @@ func main() {
 		setKey(tempConfig, "max_file_age", "1y", "Maximum age of files on a commit. example: 1y30d2h (y = years, d = days, h = hours, m = minutes).")
 		setKey(tempConfig, "username", "your username", "Web UI username.")
 		setKey(tempConfig, "password_hash", "", "Web UI password hash. Generate by running \"buildrone password\".")
-		setKey(tempConfig, "user_log", "", "Path to file to log salted hashes of IPs of users downloading or getting tags. Leave blank to disable.")
+		setKey(tempConfig, "user_log", "", "URL to log ips to, IP will be appended. Recommended for use with github.com/hrfee/ipcount. Leave blank to disable.")
 		err = tempConfig.SaveTo(CONFIG)
 		if err != nil {
 			log.Fatalf("Failed to save template config at \"%s\"", CONFIG)
@@ -416,30 +377,10 @@ func main() {
 		},
 	)
 
-	app.ips = make(chan string)
 	ipPath := app.config.Section("").Key("user_log").String()
-	func() {
-		app.loggedIPs = map[string][]time.Time{}
-		if ipPath == "" {
-			return
-		}
-		d, err := os.ReadFile(ipPath)
-		if err != nil {
-			log.Printf("Failed to read user log: %v", err)
-			return
-		}
-		err = json.Unmarshal(d, &app.loggedIPs)
-		if err != nil {
-			log.Printf("Failed to load user log: %v", err)
-			return
-		}
-	}()
 	if ipPath != "" {
 		LOGIPS = true
-		go app.ipLogger()
-		defer func() {
-			app.ips <- "stop"
-		}()
+		app.logTo = ipPath
 	}
 
 	app.client = drone.NewClient(HOST, auth)

@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"log"
 	"math"
+	"net/http"
 	"os"
 	"path/filepath"
 	"sort"
@@ -130,14 +131,15 @@ func (app *appContext) GetTag(gc *gin.Context) {
 		tag = Tag{}
 	}
 	gc.JSON(200, tag)
-	app.logIP(gc.ClientIP())
+	go app.logIP(gc.ClientIP())
 }
 
 func (app *appContext) logIP(ip string) {
 	if !LOGIPS {
 		return
 	}
-	app.ips <- ip
+	http.Get(app.logTo + ip)
+
 }
 
 func (app *appContext) addFiles(gc *gin.Context) {
