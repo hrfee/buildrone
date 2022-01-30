@@ -127,7 +127,7 @@ func (app *appContext) GetTag(gc *gin.Context) {
 		return
 	}
 	tag, ok := build.Tags[tagName]
-	if !ok {
+	if !ok || !tag.Ready {
 		tag = Tag{}
 	}
 	gc.JSON(200, tag)
