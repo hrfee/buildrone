@@ -104,6 +104,7 @@ type Repo struct {
 	Builds                                                  map[string]Build // map[commitHash]
 	Branches                                                []string
 	Secret                                                  string
+	LatestTags                                              map[string]Tag
 }
 
 type appContext struct {

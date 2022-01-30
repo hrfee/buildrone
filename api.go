@@ -103,6 +103,10 @@ func (app *appContext) SetTag(gc *gin.Context) {
 	}
 	build.Tags[tagName] = tag
 	repo.Builds[commit] = build
+	if repo.LatestTags == nil {
+		repo.LatestTags = map[string]Tag{}
+	}
+	repo.LatestTags[tagName] = tag
 	app.storage[namespace+"/"+name] = repo
 	app.store()
 	end(200, "Tag stored", gc)
@@ -118,15 +122,21 @@ func (app *appContext) GetTag(gc *gin.Context) {
 		end(400, fmt.Sprintf("Repository not found: %s/%s", namespace, name), gc)
 		return
 	}
+	var tag Tag
 	if commit == "latest" {
+		tag, ok = repo.LatestTags[tagName]
 		commit = repo.LatestBuild
+	} else {
+		ok = false
 	}
-	build, ok := repo.Builds[commit]
 	if !ok {
-		end(400, "Couldn't get build", gc)
-		return
+		build, ok := repo.Builds[commit]
+		if !ok {
+			end(400, "Couldn't get build", gc)
+			return
+		}
+		tag, ok = build.Tags[tagName]
 	}
-	tag, ok := build.Tags[tagName]
 	if !ok || !tag.Ready {
 		tag = Tag{}
 	}
