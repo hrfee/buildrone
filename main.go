@@ -12,8 +12,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/hrfee/woodpecker-go/drone"
+
 	"github.com/adrg/xdg"
-	"github.com/drone/drone-go/drone"
 	"github.com/gin-contrib/static"
 	"github.com/gin-gonic/gin"
 	"github.com/lithammer/shortuuid/v3"
@@ -40,12 +41,14 @@ var (
 	LOGIPS             = false
 )
 
+// Patched woodpecker-go takes care of this, so we don't need to blank it out.
 func namespaceToServer(ns string) string {
-	if OVERRIDE_NAMESPACE == "" {
+	return ns
+	/*if OVERRIDE_NAMESPACE == "" {
 		return ns
 	} else {
 		return ""
-	}
+	}*/
 }
 
 func parseNum(str string, d string) int {
@@ -208,7 +211,7 @@ type NewKeyRespDTO struct {
 }
 
 func (app *appContext) loadBuilds(bl map[string]Build, ns, name string) (builds map[string]Build, branches []string, latestBuild string, latestNonEmptyBuild string, err error) {
-	dBuildList, err := app.client.BuildList(ns, name, drone.ListOptions{Page: 1, Size: 500})
+	dBuildList, err := app.client.BuildList(namespaceToServer(ns), name, drone.ListOptions{Page: 1, Size: 500})
 	if err != nil {
 		return
 	}

@@ -4,3 +4,5 @@ static/ts/*
 static/*.js*
 build/
 storage.gob
+config.ini
+data/
