@@ -7,7 +7,7 @@ require (
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
 	github.com/gin-contrib/static v0.0.0-20200916080430-d45d9a37d28e
 	github.com/gin-gonic/gin v1.6.3
-	github.com/hrfee/woodpecker-go v0.0.0-20240726143300-7940e55fd629
+	github.com/hrfee/woodpecker-go v0.0.0-20240726144355-24b97ff57a56
 	github.com/lithammer/shortuuid/v3 v3.0.4
 	github.com/smartystreets/goconvey v1.8.1 // indirect
 	golang.org/x/crypto v0.0.0-20210921155107-089bfa567519
