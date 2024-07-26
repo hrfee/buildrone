@@ -215,20 +215,21 @@ func (app *appContext) loadBuilds(bl map[string]Build, ns, name string) (builds 
 	if err != nil {
 		return
 	}
+	log.Printf("Build list length: %d\n", len(dBuildList))
 	latestTime := time.Time{}
 	latestNETime := time.Time{}
 	builds = map[string]Build{}
 	for _, dBuild := range dBuildList {
-		commit := dBuild.After
+		commit := dBuild.Commit
 		build := Build{
-			ID:     dBuild.ID,
+			ID:     int64(dBuild.ID),
 			Name:   strings.Split(dBuild.Message, "\n")[0],
-			Date:   time.Unix(dBuild.Updated, 0),
-			Link:   dBuild.Link,
-			Branch: dBuild.Target,
+			Date:   time.Unix(dBuild.StartedAt, 0),
+			Link:   dBuild.ForgeURL,
+			Branch: dBuild.Branch,
 		}
-		if build.Branch == "" {
-			build.Branch = dBuild.Source
+		if build.Branch == "" && OVERRIDE_NAMESPACE != "" {
+			build.Branch = strings.TrimPrefix(dBuild.Ref, "refs/heads/")
 		}
 		if build.Branch != "" {
 			exists := false
