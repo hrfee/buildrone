@@ -24,7 +24,7 @@ builds:
 archives:
   - id: main
     name_template: >-
-      {{ .ProjectName }}_{{ .Version }}_{{- title .Os }}_
+      {{ .ProjectName }}_{{ .Branch }}_{{ .Version }}_{{- title .Os }}_
       {{- if eq .Arch "amd64" }}x86_64{{- else }}{{ .Arch }}{{ end }}
     files:
         - templates/*
