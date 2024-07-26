@@ -7,12 +7,11 @@ steps:
       image: golang:latest
       commands:
         - apt update -y
-        - apt install python3-pip -y
+        - apt install python3-requests -y
         - curl -sL https://git.io/goreleaser > goreleaser.sh
         - chmod +x goreleaser.sh
         - ./goreleaser.sh --snapshot --skip-publish --rm-dist
         - wget https://builds.hrfee.pw/upload.py
-        - pip3 install requests
         - bash -c 'python3 upload.py https://builds.hrfee.pw hrfee buildrone --upload ./dist/*.tar.gz'
       environment:
           BUILDRONE_KEY:
