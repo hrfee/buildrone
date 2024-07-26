@@ -1,6 +1,6 @@
 #### *buildrone*
 
-A small app for serving build output files publicly for Drone CI. You use it like this:
+A small app for serving build output files publicly for Drone CI (Woodpecker CI also works, as of 26/07/24). You use it like this:
 * Once your repo is setup in drone, open the buildrone dashboard and press "Setup" on your repo. A key is generated, which you store as the `BUILDRONE_SECRET` environment variable in your Drone build settings.
 * In your drone.yml, grab the upload script from `your_buildrone_url/upload.py`, and run it to upload your files. 
 * Working example of public ui and `upload.py` usage can be found [here](https://builds.hrfee.pw/view/hrfee/jfa-go) and [here](https://github.com/hrfee/jfa-go/blob/main/.drone.yml) respectively.
