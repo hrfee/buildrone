@@ -1,3 +1,5 @@
+# yaml-language-server: $schema=https://goreleaser.com/static/schema.json
+version: 2
 project_name: buildrone
 release:
     github:
@@ -7,20 +9,23 @@ release:
 before:
   hooks:
     - go mod download
-    - go get github.com/evanw/esbuild/cmd/esbuild
+    - go install github.com/evanw/esbuild/cmd/esbuild@latest
     - bash -c 'esbuild ts/* --outdir=static --minify'
 builds:
-    - dir: ./
-      env:
-        - CGO_ENABLED=0
-      goos:
-        - linux
-      goarch:
-        - amd64
+  - id: main
+    dir: ./
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+    goarch:
+      - amd64
+      - arm64
 archives:
-  - replacements:
-        linux: Linux
-        amd64: x86_64
+  - id: main
+    name_template: >-
+      {{ .ProjectName }}_{{ .Version }}_{{- title .Os }}_
+      {{- if eq .Arch "amd64" }}x86_64{{- else }}{{ .Arch }}{{ end }}
     files:
         - templates/*
         - static/*

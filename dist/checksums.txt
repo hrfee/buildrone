@@ -1,0 +1,2 @@
+33e3ce9db62185c604cf7ea2ca560040069cfc0ef524917c3837cf0b0687a8cb  buildrone_git-e889504_Linux_arm64.tar.gz
+4ba0b896da5610d1a5f33b8440dacf60ec6d31d2c613c15a04069b7c1edd3bab  buildrone_git-e889504_Linux_x86_64.tar.gz
