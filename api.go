@@ -186,7 +186,7 @@ func (app *appContext) addFiles(gc *gin.Context) {
 	os.Mkdir(filepath.Join(STORAGE, ns), os.FileMode(DIRPERM))
 	os.Mkdir(filepath.Join(STORAGE, ns, name), os.FileMode(DIRPERM))
 	repo := app.storage[ns+"/"+name]
-	repo.Builds, repo.Branches, repo.LatestBuild, repo.LatestNonEmptyBuild, err = app.loadBuilds(repo.Builds, ns, name)
+	repo.Builds, repo.Branches, repo.LatestBuild, repo.LatestNonEmptyBuild, err = app.loadBuilds(repo.Builds, namespaceToServer(ns), name)
 	if err != nil {
 		end(500, fmt.Sprintf("Couldn't get builds: %s", err), gc)
 		return
