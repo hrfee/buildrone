@@ -2,7 +2,7 @@ FROM golang:latest AS build
 
 COPY . /opt/build
 
-RUN GO111MODULE=on go get github.com/evanw/esbuild/cmd/esbuild
+RUN go install github.com/evanw/esbuild/cmd/esbuild@latest
 
 RUN cd /opt/build; make all
 
