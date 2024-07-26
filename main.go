@@ -23,21 +23,30 @@ import (
 )
 
 var (
-	TOKEN         = ""
-	HOST          = ""
-	DATADIR       = filepath.Join(xdg.DataHome, "buildrone")
-	STORAGE       = filepath.Join(DATADIR, "buildfiles")
-	CONFIG        = filepath.Join(xdg.ConfigHome, "buildrone", "config.ini")
-	DIRPERM       = 0700
-	TOKEN_PERIOD  = 40 // Refresh token expiry in days. Essentially the longest time without a build before you need to make a new token.
-	BUILDSPERPAGE = 6
-	DEBUG         = false
-	SERVE         = "0.0.0.0"
-	PORT          = 8062
-	MAXAGE        = ""
-	MAXAGEDELTA   maxAgeDelta
-	LOGIPS        = false
+	TOKEN              = ""
+	HOST               = ""
+	OVERRIDE_NAMESPACE = ""
+	DATADIR            = filepath.Join(xdg.DataHome, "buildrone")
+	STORAGE            = filepath.Join(DATADIR, "buildfiles")
+	CONFIG             = filepath.Join(xdg.ConfigHome, "buildrone", "config.ini")
+	DIRPERM            = 0700
+	TOKEN_PERIOD       = 40 // Refresh token expiry in days. Essentially the longest time without a build before you need to make a new token.
+	BUILDSPERPAGE      = 6
+	DEBUG              = false
+	SERVE              = "0.0.0.0"
+	PORT               = 8062
+	MAXAGE             = ""
+	MAXAGEDELTA        maxAgeDelta
+	LOGIPS             = false
 )
+
+func namespaceToServer(ns string) string {
+	if OVERRIDE_NAMESPACE == "" {
+		return ns
+	} else {
+		return ""
+	}
+}
 
 func parseNum(str string, d string) int {
 	if !strings.Contains(str, d) {
@@ -170,10 +179,15 @@ func (app *appContext) loadRepos() (err error) {
 		if !dRepo.Active {
 			continue
 		}
-		id := dRepo.Namespace + "/" + dRepo.Name
+		namespace := dRepo.Namespace
+		// Workaround for Woodpecker
+		if namespace == "" {
+			namespace = OVERRIDE_NAMESPACE
+		}
+		id := namespace + "/" + dRepo.Name
 		if _, ok := app.storage[id]; !ok {
 			newRepo := Repo{
-				Namespace: dRepo.Namespace,
+				Namespace: namespace,
 				Name:      dRepo.Name,
 				Link:      dRepo.Link,
 				Secret:    "",
@@ -284,7 +298,8 @@ func setKey(config *ini.File, key, value, comment string) {
 func (app *appContext) loadAllBuilds() {
 	for n, repo := range app.storage {
 		log.Printf("Loading builds for %s/%s", repo.Namespace, repo.Name)
-		builds, branches, latest, latestNE, err := app.loadBuilds(repo.Builds, repo.Namespace, repo.Name)
+		// Workaround for Woodpecker
+		builds, branches, latest, latestNE, err := app.loadBuilds(repo.Builds, namespaceToServer(repo.Namespace), repo.Name)
 		if err == nil {
 			repo.LatestBuild = latest
 			repo.LatestNonEmptyBuild = latestNE
@@ -344,6 +359,7 @@ func main() {
 		setKey(tempConfig, "username", "your username", "Web UI username.")
 		setKey(tempConfig, "password_hash", "", "Web UI password hash. Generate by running \"buildrone password\".")
 		setKey(tempConfig, "user_log", "", "URL to log ips to, IP will be appended. Recommended for use with github.com/hrfee/ipcount. Leave blank to disable.")
+		setKey(tempConfig, "woodpecker_user_override", "", "When using Woodpecker CI, set to the username/namespace -all- repos will be under.")
 		err = tempConfig.SaveTo(CONFIG)
 		if err != nil {
 			log.Fatalf("Failed to save template config at \"%s\"", CONFIG)
@@ -370,6 +386,7 @@ func main() {
 	os.Setenv("BUILDRONE_WEBSECRET", shortuuid.New())
 	TOKEN = app.config.Section("").Key("drone_apikey").String()
 	HOST = app.config.Section("").Key("drone_host").String()
+	OVERRIDE_NAMESPACE = app.config.Section("").Key("woodpecker_user_override").String()
 	config := new(oauth2.Config)
 	auth := config.Client(
 		oauth2.NoContext,
