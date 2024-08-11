@@ -8,7 +8,7 @@ A small app for serving build output files publicly for Woodpecker CI, See the m
 #### *building/installing*
 builds are of course provided by a [buildrone instance](https://builds.hrfee.pw/view/hrfee/buildrone), just extract and run. Building yourself is trivial also.
 
-Install esbuild and ensure its in your path, and then run `make all` to get deps, compile the program and typescript, and dump everything in the `build/` folder.
+Install esbuild and ensure its in your path, and then run `make` to get deps, compile the program and typescript, and dump everything in the `build/` folder.
 
 A Dockerfile is also provided.
 ```

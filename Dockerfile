@@ -4,7 +4,7 @@ COPY . /opt/build
 
 RUN go install github.com/evanw/esbuild/cmd/esbuild@latest
 
-RUN cd /opt/build; make all
+RUN cd /opt/build; make
 
 FROM golang:latest
 
