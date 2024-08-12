@@ -1,0 +1,15 @@
+.accordion {
+    overflow: hidden;
+}
+
+.accordion-body {
+    @apply max-h-0;
+}
+
+input:checked ~ .accordion-body {
+    @apply max-h-80;
+}
+
+input:checked ~ .accordion-arrow {
+    @apply rotate-90;
+}

@@ -39,6 +39,7 @@ var (
 	MAXAGE             = ""
 	MAXAGEDELTA        maxAgeDelta
 	LOGIPS             = false
+	DEMOMODE           = false
 )
 
 // Patched woodpecker-go takes care of this, so we don't need to blank it out.
@@ -404,6 +405,8 @@ func main() {
 		LOGIPS = true
 		app.logTo = ipPath
 	}
+
+	DEMOMODE = app.config.Section("").Key("demo_mode").MustBool(false)
 
 	app.client = drone.NewClient(HOST, auth)
 	app.read()

@@ -18,38 +18,22 @@
         <!-- Required meta tags -->
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-        <link rel="stylesheet" href="https://unpkg.com/spectre.css/dist/spectre.min.css">
-        <link rel="stylesheet" href="https://unpkg.com/spectre.css/dist/spectre-exp.min.css">
-        <link rel="stylesheet" href="https://unpkg.com/spectre.css/dist/spectre-icons.min.css">
+        <link rel="stylesheet" href="../../bundle.css">
         <title>{{ .namespace }}/{{ .name }}</title>
-        <style>
-            .text-monospace {
-                font-family: monospace;
-            }
-            .minicard {
-                margin-top: 1rem;
-                margin-bottom: 1rem;
-            }
-        </style>
     </head>
     <body>
-        <div class="container">
-            <div class="columns">
-                <div class="column col-8 col-mx-auto">
-                    <header class="navbar">
-                        <section class="navbar-section">
-                            <b class="navbar-brand mr-2">builds for <a href="{{ .repoLink }}">{{ .namespace }}/{{ .name }}</a> from branch <span id="branch-area"></span></b>
-                        </section>
-                        <section class="navbar-section">
-                            <a class="text-gray" href="https://github.com/hrfee/buildrone">{{ if eq .name "buildrone" }}you already know {{ else }}buildrone {{ end }}</a>
-                        </section>
-                    </header>
-                    <div class="container" id="content">
-                        <button class="btn btn-sm float-right" style="margin-top: 2rem;" id="loadMore">Load More</button>
-                    </div>
+        <div class="page-container m-2 md:my-8 md:mx-16 lg:mx-32 xl:my-20 xl:mx-64 flex flex-col gap-4">
+            <header class="flex flex-row justify-between">
+                <h3 class="heading flex flex-row gap-2"><span>builds for <a class="font-semibold" href="{{ .repoLink }}">{{ .namespace }}/{{ .name }}</a> from branch </span><span id="branch-area" class="flex flex-row gap-2"></span></h3>
+                <a class="heading text-neutral-400 hover:underline" href="https://github.com/hrfee/buildrone">buildrone</a>
+            </header>
+            <div class="w-full flex flex-col gap-4">
+                <div class="w-full flex flex-col gap-4" id="builds"></div>
+                <div class="flex flex-row justify-end">
+                    <button class="button ~urge @low" id="loadMore">Load More</button>
                 </div>
             </div>
         </div>
-    <script src="../../repo.js"></script>
     </body>
+    <script src="../../repo.js"></script>
 </html>

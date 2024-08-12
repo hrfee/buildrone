@@ -1,84 +1,44 @@
 <!doctype html>
-<style>
-    .container {
-        margin-top: 10%;
-        margin-bottom: 10%;
-    }
-    #content {
-        margin-top: 5%;
-        margin-bottom: 5%;
-    }
-    .text-monospace {
-        font-family: monospace;
-    }
-    .minicard {
-        margin-top: 1rem;
-        margin-bottom: 1rem;
-    }
-</style>
 <html lang="en">
     <head>
         <!-- Required meta tags -->
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-        <link rel="stylesheet" href="https://unpkg.com/spectre.css/dist/spectre.min.css">
-        <link rel="stylesheet" href="https://unpkg.com/spectre.css/dist/spectre-exp.min.css">
-        <link rel="stylesheet" href="https://unpkg.com/spectre.css/dist/spectre-icons.min.css">
+        <link rel="stylesheet" href="../../bundle.css">
         <title>buildrone</title>
     </head>
     <body>
         <div class="modal" id="loginModal">
-            <a href="#close" class="modal-overlay" aria-label="Close"></a>
-            <div class="modal-container">
-                <div class="modal-header">
-                    <div class="modal-title h5">Login to Buildrone</div>
+            <form action="#" method="POST" id="loginForm" class="card relative mx-auto my-[10%] w-11/12 sm:w-4/5 lg:w-1/3 flex flex-col gap-4">
+                <h5 class="heading">login to buildrone</h5>
+                <input class="field ~neutral w-full" type="text" id="username" placeholder="Username">
+
+                <input class="field ~neutral w-full" type="password" id="password" placeholder="Password">
+                
+                <div class="flex flex-row justify-end gap-2">
+                    <button type="submit" class="button ~neutral @high submit" id="loginButton" form="loginForm">Login</button>
                 </div>
-                <div class="modal-body">
-                    <form action="#" method="POST" id="loginForm">
-                        <div class="form-group">
-                            <label class="form-label" for="username">Username</label>
-                            <input class="form-input" type="text" id="username" placeholder="Username">
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label" for="password">Password</label>
-                            <input class="form-input" type="password" id="password" placeholder="Password">
-                        </div>
-                    </form>
-                </div>
-                <div class="modal-footer">
-                    <button type="submit" class="btn btn-primary" id="loginButton" form="loginForm">Login</button>
-                </div>
-            </div>
+            </form>
         </div>
-        <div class="modal modal-sm" id="secretWarningModal">
-            <a href="#close" class="modal-overlay" aria-label="Close"></a>
-            <div class="modal-container">
-                <div class="modal-header">
-                    <div class="modal-title h5">Are you sure?</div>
-                </div>
-                <div class="modal-body">
-                    <p class="content">Regenerating the secret will invalidate all previously generated build keys.</o>
-                </div>
-                <div class="modal-footer">
-                    <button class="btn btn-link" aria-label="Cancel" onclick="rmAttr(document.getElementById('secretWarningModal'), 'active')">Cancel</button>
-                    <button class="btn btn-primary" id="newSecretSubmit">Continue</button>
+        <div class="modal" id="secretWarningModal">
+            <div class="card relative mx-auto my-[10%] w-11/12 sm:w-4/5 lg:w-1/3 flex flex-col gap-4">
+                <h5 class="heading">are you sure?<span class="modal-close">&times;</span></h5>
+                <p class="content">Regenerating the secret will invalidate all previously generated build keys.</p>
+                <div class="flex flex-row justify-end gap-2">
+                    <button class="button ~neutral @high" aria-label="Cancel" id="secret-warning-close">Cancel</button>
+                    <button class="button ~critical @high" id="secret-warning-submit">Continue</button>
                 </div>
             </div>
         </div>
 
-        <div class="container">
-            <div class="columns">
-                <div class="column col-8 col-mx-auto">
-                    <header class="navbar">
-                        <section class="navbar-section">
-                            <b class="navbar-brand mr-2">buildrone dashboard</b>
-                        </section>
-                    </header>
-                    <div class="container" id="content">
-                    </div>
-                </div>
+        <div class="page-container m-2 md:my-8 md:mx-16 lg:mx-32 xl:my-20 xl:mx-64 flex flex-col gap-4">
+            <header class="flex flex-row justify-between">
+                <h3 class="heading">dashboard</h3>
+                <a class="heading text-neutral-400 hover:underline" href="https://github.com/hrfee/buildrone">buildrone</a>
+            </header>
+            <div class="w-full flex flex-col gap-4" id="repos">
             </div>
         </div>
-    <script src="../../admin.js"></script>
     </body>
+    <script src="../../admin.js"></script>
 </html>

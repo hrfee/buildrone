@@ -1,50 +1,35 @@
-interface Window {
-    token: string;
-}
+import { Modal } from "./modules/modal.js";
+import { addLoader, removeLoader, toClipboard, whichAnimationEvent } from "./modules/common.js";
 
-function toClipboard(str: string): void {
-    const el = document.createElement('textarea') as HTMLTextAreaElement;
-    el.value = str;
-    el.readOnly = true;
-    el.style.position = "absolute";
-    el.style.left = "-9999px";
-    document.body.appendChild(el);
-    const selected = document.getSelection().rangeCount > 0 ? document.getSelection().getRangeAt(0) : false;
-    el.select();
-    document.execCommand("copy");
-    document.body.removeChild(el);
-    if (selected) {
-        document.getSelection().removeAllRanges();
-        document.getSelection().addRange(selected);
-    }
-}
+window.animationEvent = whichAnimationEvent();
+var locale: string = navigator.language || window.navigator.language || "en-US"
 
-const _get = (url: string, data: Object, onreadystatechange: () => void): void => {
+const _get = (url: string, data: Object, onreadystatechange: (req: XMLHttpRequest) => void): void => {
     let req = new XMLHttpRequest();
     req.open("GET", url, true);
     req.responseType = 'json';
     req.setRequestHeader("Authorization", "Bearer " + btoa(window.token));
     req.setRequestHeader('Content-Type', 'application/json');
-    req.onreadystatechange = onreadystatechange;
+    req.onreadystatechange = () => onreadystatechange(req);
     req.send(JSON.stringify(data));
 };
 
-const _post = (url: string, data: Object, onreadystatechange: () => void): void => {
+const _post = (url: string, data: Object, onreadystatechange: (req: XMLHttpRequest) => void): void => {
     let req = new XMLHttpRequest();
     req.open("POST", url, true);
     req.responseType = 'json';
     req.setRequestHeader("Authorization", "Bearer " + btoa(window.token));
     req.setRequestHeader('Content-Type', 'application/json; charset=UTF-8');
-    req.onreadystatechange = onreadystatechange;
+    req.onreadystatechange = () => onreadystatechange(req);
     req.send(JSON.stringify(data));
 };
 
-function _delete(url: string, data: Object, onreadystatechange: () => void): void {
+function _delete(url: string, data: Object, onreadystatechange: (req: XMLHttpRequest) => void): void {
     let req = new XMLHttpRequest();
     req.open("DELETE", url, true);
     req.setRequestHeader("Authorization", "Bearer " + btoa(window.token));
     req.setRequestHeader('Content-Type', 'application/json; charset=UTF-8');
-    req.onreadystatechange = onreadystatechange;
+    req.onreadystatechange = () => onreadystatechange(req);
     req.send(JSON.stringify(data));
 }
 
@@ -54,9 +39,6 @@ const rmAttr = (el: HTMLElement, attr: string): void => {
     }
 };
 const addAttr = (el: HTMLElement, attr: string): void => el.classList.add(attr);
-
-const Focus = (el: HTMLElement): void => rmAttr(el, 'unfocused');
-const Unfocus = (el: HTMLElement): void => addAttr(el, 'unfocused');
 
 interface Repo {
     Namespace: string;
@@ -84,75 +66,184 @@ interface File {
     Size: string;
 }
 
-const genCard = (repo: Repo): HTMLDivElement => {
-    const hasBuilds = repo.LatestCommit != ""
-    let shortCommit = '';
-    if (repo.Secret && hasBuilds && repo.LatestCommit.length >= 7) {
-        shortCommit = repo.LatestCommit.substring(0, 7);
-    }
-    let link = `${base}/view/${repo.Namespace}/${repo.Name}`;  
-    let repoSection = '';
-    if (repo.Secret) {
-        repoSection = `
-        <a href="${link}" class="card-title h5">${repo.Namespace}/${repo.Name}</a>
-        `;
-        if (hasBuilds) { 
-            repoSection += `<a href="${repo.LatestPush.Link}" class="card-title h5 text-monospace text-gray">${shortCommit}</a>
-            <div class="card-subtitle text-gray">Last commit: ${repo.LatestPush.Date.toLocaleDateString('en-US')} @ ${repo.LatestPush.Date.toLocaleTimeString('en-US')}</div>
-            `;
-        } else {
-            repoSection += `<div class="card-subtitle text-gray">No commits yet.</div>`;
-        }
-        repoSection += `
-        `;
-    } else {
-        repoSection = `
-        <a class="card-title h5 text-gray">${repo.Namespace}/${repo.Name}</a>
-        <div class="card-subtitle text-gray">Not configured.</div>
-        `;
-    }
-    let newSecretButton = "";
-    if (repo.Secret) {
-        newSecretButton = `
-        <button class="btn btn-lg btn-error" onclick="newSecretWarning('${repo.Namespace}', '${repo.Name}', this)" style="margin: 0.5rem;">New Secret</button>
-        `;
-    }
-    let text = `
-    <div class="card minicard">
-        <div class="columns col-gapless">
-            <div class="column">
-                <div class="card-header">
-                    ${repoSection}
-                </div>
+class RepoCard {
+    private _repo: Repo = {};
+    private _card: HTMLElement;
+
+    private _name: HTMLAnchorElement;
+    private _commit: HTMLAnchorElement;
+    private _latestPush: HTMLElement;
+
+    private _newKey: HTMLButtonElement;
+    private _newSecret: HTMLButtonElement;
+
+    private _keyArea: HTMLElement;
+
+    asElement = (): HTMLElement =>  { return this._card };
+
+    constructor(repo: Repo) {
+        this._card = document.createElement("div");
+        this._card.classList.add("card", "flex", "flex-row", "flex-wrap", "gap-4", "justify-between");
+        this._card.innerHTML = `
+        <div class="flex flex-col gap-2 justify-between">
+            <div class="heading flex flex-col gap-2 justify-between">
+                <a class="repo-name hover:underline"></a> <a class="repo-commit font-mono text-neutral-400 hover:underline"></a>
             </div>
-            <div class="divider-vert"></div>
-            <div class="column">
-                <div class="card-body" style="padding-bottom: 0.8rem;">
-                    <button class="btn btn-lg ${!repo.Secret ? '' : 'btn-primary'}" onclick="newKey('${repo.Namespace}', '${repo.Name}', false, this)" style="margin: 0.5rem;">${!repo.Secret ? 'Setup' : 'New Key'}</button>
-                    ${newSecretButton}
-                    <div class="textArea"></div>
-                </div>
-            <div>
+            <div class="repo-latest-push content"></div>
         </div>
-    </div>
-    `;
-    const el = document.createElement('div') as HTMLDivElement;
-    el.innerHTML = text;
-    return el.firstElementChild as HTMLDivElement;
-};
+        <div class="flex flex-row gap-4 justify-end">
+            <div class="flex flex-col gap-2 justify-between max-w-sm min-w-xs repo-key-area card ~positive @low hidden"></div>
+            <div class="flex flex-col justify-between gap-2">
+                <button class="button ~urge @low repo-new-key grow"></button>
+                <button class="button ~critical @low repo-new-secret grow hidden">New secret</button>
+            </div>
+        </div>
+        `;
+        this._name = this._card.getElementsByClassName("repo-name")[0] as HTMLAnchorElement;
+        this._commit = this._card.getElementsByClassName("repo-commit")[0] as HTMLAnchorElement;
+        this._latestPush = this._card.getElementsByClassName("repo-latest-push")[0] as HTMLAnchorElement;
+       
+        this._newKey = this._card.getElementsByClassName("repo-new-key")[0] as HTMLButtonElement;
+        this._newKey.onclick = () => this.newKey(false);
+        this._newSecret = this._card.getElementsByClassName("repo-new-secret")[0] as HTMLButtonElement;
+        this._newSecret.onclick = this.newSecret;
+
+        this._keyArea = this._card.getElementsByClassName("repo-key-area")[0] as HTMLElement;
+        
+        this.update(repo);
+    }
+    
+    get namespace(): string { return this._repo.Namespace; };
+    set namespace(v: string) {
+        this._repo.Namespace = v;
+        if (this.name != "") this.updateName();
+    }
+
+    get name(): string { return this._repo.Name; };
+    set name(v: string) {
+        this._repo.Name = v;
+        if (this.namespace != "") this.updateName();
+    }
+
+    updateName = () => {
+        this._name.textContent = `${this.namespace}/${this.name}`;
+        this._name.href = `${window.location.origin}/view/${this._name.textContent}`;
+        this._name.classList.remove("text-neutral-400");
+    }
+
+    get commit(): string { return this._repo.LatestCommit; };
+    set commit(v: string) {
+        if (v == "") {
+            this._latestPush.textContent = `No commits yet.`;
+            return;
+        }
+        this._commit.textContent = v.substring(0, 7);
+    }
+
+    set secret(v: boolean) {
+        this._repo.Secret = v;
+        if (!this._repo.Secret) {
+            this.blankRepo();
+        } else {
+            this._newSecret.classList.remove("hidden");
+            this._newKey.textContent = "New key";
+            /* this._newKey.classList.add("@high");
+            this._newKey.classList.remove("@low"); */
+        }
+    }
+
+    blankRepo = () => {
+        this._commit.textContent = "";
+        this._commit.href = "";
+        this._name.classList.add("text-neutral-400");
+        this._latestPush.textContent = `Not configured.`;
+        this._latestPush.classList.add("text-neutral-400");
+        this._newSecret.classList.add("hidden");
+        this._newKey.textContent = "Set up";
+        /* this._newKey.classList.add("@low");
+        this._newKey.classList.remove("@high"); */
+    }
+
+    get latestPush(): Build { return this._repo.LatestPush; };
+    set latestPush(b: Build) {
+        this._repo.LatestPush = b;
+        this._commit.href = this._repo.LatestPush.Link;
+        this._latestPush.textContent = `Last commit: ${this._repo.LatestPush.Date.toLocaleDateString(locale)} @ ${this._repo.LatestPush.Date.toLocaleTimeString(locale)}`;
+    }
+
+    newSecret = () => {
+        (document.getElementById("secret-warning-submit") as HTMLButtonElement).onclick = () => this.newKey(true);
+        secretWarningModal.show();
+    };
+
+    newKey = (secret: boolean) => {
+        const button = secret ? this._newSecret : this._newKey;
+        const ogText = button.textContent;
+        this._keyArea.textContent = '';
+        addLoader(button);
+        let send: NewKeyReqDTO = { NewSecret: secret };
+        _post(`/repo/${this.namespace}/${this.name}/key`, send, (req: XMLHttpRequest) => {
+            if (req.readyState != 4) return;
+            secretWarningModal.close();
+            removeLoader(button);
+            if (req.status != 200) {
+                button.classList.add("~warning");
+                button.textContent = `Failed`;
+                setTimeout(() => {
+                    button.classList.remove("~warning");
+                    button.textContent = ogText;
+                }, 5000);
+                return;
+            }
+            let key = (req.response as NewKeyRespDTO).Key;
+            this.secret = true;
+            this._keyArea.innerHTML = `
+            <p class="content">
+                ${secret ? "Secret" : "New build key"} generated.
+                ${secret ? "All previous build keys have been invalidated." : ""}
+                ${!secret ? "Click below to copy, then set as the BUILDRONE_KEY environment variable for the upload script with a secret in the CI.": ""}
+            </p>
+            <div class="flex flex-row justify-center">
+                <button class="button ~positive @low repo-copy-key flex flex-row gap-2 max-w-min">Copy<i class="ri-file-copy-line"></i></button>
+            </div>
+            `;
+            this._keyArea.classList.remove("hidden");
+            const copyButton = this._keyArea.getElementsByClassName("repo-copy-key")[0] as HTMLButtonElement;
+            copyButton.onclick = () => {
+                toClipboard(key);
+                copyButton.classList.add("@high");
+                copyButton.classList.remove("@low");
+                copyButton.innerHTML = `Copied<i class="ri-check-line"></i>`;
+                setTimeout(() => {
+                    copyButton.classList.add("@low");
+                    copyButton.classList.remove("@high");
+                    copyButton.innerHTML = `Copy<i class="ri-file-copy-line"></i>`;
+                }, 5000);
+            }
+        });
+    }
+
+    update = (r: Repo) => {
+        this._repo = r;
+        this.namespace = r.Namespace;
+        this.name = r.Name;
+        this.commit = r.LatestCommit;
+        this.latestPush = r.LatestPush;
+        this.secret = r.Secret;
+    };
+}
 
 const emptyCard = (): HTMLDivElement => {
     const el = document.createElement('div') as HTMLDivElement;
+    el.classList.add("card", "flex", "flex-row", "flex-wrap", "gap-4", "justify-center");
     el.innerHTML = `
-    <div class="card empty">
-        <div class="empty-subtitle">
-            Setup repositories in Drone to see them here.
-        </div>
+    <div class="flex flex-col gap-2">
+        <h5 class="heading">No repos</h5>
+        <p class="content">Set up some repos in Drone/Woodpecker to see them here.</p>
     </div>
     `;
-    return el.firstElementChild as HTMLDivElement;
+    return el;
 };
-
 
 interface NewKeyReqDTO {
     NewSecret: boolean;
@@ -162,89 +253,13 @@ interface NewKeyRespDTO {
     Key: string;
 }
 
-var newSecretButtonEl: HTMLButtonElement;
-
-function newSecretWarning(namespace: string, name: string, button: HTMLButtonElement): void {
-    newSecretButtonEl = button;
-    (document.getElementById('newSecretSubmit') as HTMLButtonElement).setAttribute('onclick', `newKey('${namespace}', '${name}', true, newSecretButtonEl)`);
-    addAttr(document.getElementById('secretWarningModal'), "active");
-}
-
-function newKey(namespace: string, name: string, newSecret: boolean, button: HTMLButtonElement): void {
-    const textArea = button.parentElement.getElementsByClassName('textArea')[0];
-    textArea.textContent = '';
-    const removeError = !button.classList.contains("btn-error");
-    addAttr(button, "loading");
-    const ogText = button.textContent;
-    let data: NewKeyReqDTO = { NewSecret: newSecret };
-    _post(`/repo/${namespace}/${name}/key`, data, function (): void {
-        if (this.readyState == 4) {
-            rmAttr(document.getElementById('secretWarningModal'), "active");
-            rmAttr(button, "loading");
-            if (this.status != 200) {
-                addAttr(button, "btn-error");
-                rmAttr(button, "btn-primary");
-                button.textContent = "Failed";
-                setTimeout((): void => {
-                    addAttr(button, "btn-primary");
-                    if (removeError) {
-                        rmAttr(button, "btn-error");
-                    }
-                    button.textContent = ogText;
-                }, 3000);
-            } else {
-                addAttr(button, "btn-success");
-                rmAttr(button, "btn-primary");
-                const secret = (<NewKeyRespDTO>this.response).Key;
-                button.textContent = "Success";
-                const secretButton = document.createElement('button');
-                secretButton.classList.add("btn", "text-monospace");
-                secretButton.setAttribute('style', 'width: 6rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin: 0.5rem;');
-                const msg = document.createElement('p');
-                addAttr(msg, "text-gray");
-                if (newSecret) {
-                    msg.textContent += `
-                    A new secret has been generated. All previous build keys are now invalid.
-                    `;
-                }
-                msg.textContent += `
-
-                Click the above build key to copy it, and store it as the 'BUILDRONE_KEY' environment variable in Drone for the upload script to use.`;
-                secretButton.innerHTML = `
-                <i class="icon icon-copy"></i> ${secret}
-                `;
-                secretButton.onclick = (): void => {
-                    toClipboard(secret);
-                    const toast = document.createElement('div') as HTMLDivElement;
-                    addAttr(toast, "toast");
-                    const closeButton = document.createElement('button') as HTMLButtonElement;
-                    closeButton.classList.add('btn', 'btn-clear', 'float-right');
-                    closeButton.onclick = (): void => toast.remove();
-                    toast.appendChild(closeButton);
-                    toast.appendChild(document.createTextNode('Copied to clipboard.'));
-                    msg.appendChild(toast);
-                    setTimeout((): void => toast.remove(), 5000);
-                };
-                textArea.appendChild(secretButton);
-                textArea.appendChild(msg);
-                setTimeout((): void => {
-                    secretButton.remove();
-                    msg.remove();
-                    rmAttr(button, "btn-primary");
-                    rmAttr(button, "btn-success");
-                    button.textContent = ogText;
-                }, 60000);
-            }
-        }
-    });
-}
-
-const base = window.location.origin;
+const secretWarningModal = new Modal(document.getElementById("secretWarningModal"));
+(document.getElementById("secret-warning-close") as HTMLButtonElement).onclick = secretWarningModal.close;
 
 let repoList: { [ns_name: string]: Repo } = {}; 
 var repoOrder: Array<string> = [];
 
-const loginModal = document.getElementById('loginModal') as HTMLDivElement;
+const loginModal = new Modal(document.getElementById("loginModal"), true);
 
 function login(username: string, password: string, modal: boolean, run?: (arg0: number) => void): void {
     const req = new XMLHttpRequest();
@@ -254,7 +269,7 @@ function login(username: string, password: string, modal: boolean, run?: (arg0: 
     req.onreadystatechange = function (): void {
         if (this.readyState == 4) {
             const button = document.getElementById('loginButton') as HTMLButtonElement;
-            rmAttr(button, "loading");
+            removeLoader(button);
             if (this.status != 200) {
                 let errorMsg = this.response["error"];
                 if (!errorMsg) {
@@ -271,13 +286,13 @@ function login(username: string, password: string, modal: boolean, run?: (arg0: 
                         button.textContent = "Login";
                     }, 4000);
                 } else {
-                    addAttr(loginModal, "active");
+                    loginModal.show();
                 }
             } else {
                 const data = this.response;
                 window.token = data["token"];
                 loadRepos();
-                rmAttr(loginModal, "active");
+                loginModal.close();
             }
             if (run) {
                 run(+this.status);
@@ -289,7 +304,7 @@ function login(username: string, password: string, modal: boolean, run?: (arg0: 
 
 (document.getElementById('loginForm') as HTMLFormElement).onsubmit = function (): boolean {
     const button = document.getElementById('loginButton') as HTMLButtonElement;
-    addAttr(button, "loading");
+    addLoader(button);
     const username = (document.getElementById('username') as HTMLInputElement).value;
     const password = (document.getElementById('password') as HTMLInputElement).value;
     login(username, password, true, null);
@@ -298,15 +313,13 @@ function login(username: string, password: string, modal: boolean, run?: (arg0: 
 
 login("", "", false, (status: number): void => {
     if (!(status == 200 || status == 204)) {
-        addAttr(loginModal, "active");
+        loginModal.show();
     }
 });
-    
 
-
-const loadRepos = (): void => _get('/repos', null, function (): void {
-    if (this.readyState == 4 && this.status == 200) {
-        repoList = this.response;
+const loadRepos = (): void => _get('/repos', null, (req: XMLHttpRequest) => {
+    if (req.readyState == 4 && req.status == 200) {
+        repoList = req.response;
         for (const key of Object.keys(repoList)) {
             repoList[key].LatestPush.Date = new Date(repoList[key].LatestPush.Date as any);
             repoOrder.push(key);
@@ -326,15 +339,13 @@ const loadRepos = (): void => _get('/repos', null, function (): void {
                 }
             }
         });
-        const el = document.getElementById("content");
+        const el = document.getElementById("repos");
         for (let i = 0; i < repoOrder.length; i++) {
-            el.appendChild(genCard(repoList[repoOrder[i]]));
+            el.appendChild((new RepoCard(repoList[repoOrder[i]])).asElement());
         }
+        // No clue why 2, but we'll leave it i guess
         if (repoOrder.length < 2) {
             el.appendChild(emptyCard())
         }
     }
 });
-
-
-

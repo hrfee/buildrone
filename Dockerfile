@@ -2,9 +2,7 @@ FROM golang:latest AS build
 
 COPY . /opt/build
 
-RUN go install github.com/evanw/esbuild/cmd/esbuild@latest
-
-RUN cd /opt/build; make
+RUN cd /opt/build; npm i; make
 
 FROM golang:latest
 

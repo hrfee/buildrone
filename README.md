@@ -2,13 +2,13 @@
 
 A small app for serving build output files publicly for Woodpecker CI, See the main branch for Drone CI support. You use it like this:
 * Once your repo is setup in drone, open the buildrone dashboard and press "Setup" on your repo. A key is generated, which you store as the `BUILDRONE_SECRET` environment variable in your Drone build settings.
-* In your drone.yml, grab the upload script from `your_buildrone_url/upload.py`, and run it to upload your files. 
-* Working example of public ui and `upload.py` usage can be found [here](https://builds.hrfee.pw/view/hrfee/jfa-go) and [here](https://github.com/hrfee/jfa-go/blob/main/.drone.yml) respectively.
+* In your CI config, grab the upload script from `your_buildrone_url/upload.py`, and run it to upload your files. 
+* Working example of public ui and `upload.py` usage can be found [here](https://dl.jfa-go.com) and [here](https://github.com/hrfee/jfa-go/tree/main/.woodpecker) respectively.
 
 #### *building/installing*
 builds are of course provided by a [buildrone instance](https://builds.hrfee.pw/view/hrfee/buildrone), just extract and run. Building yourself is trivial also.
 
-Install esbuild and ensure its in your path, and then run `make` to get deps, compile the program and typescript, and dump everything in the `build/` folder.
+Run `npm i` to get node deps, and `make [DEBUG=on/off]` to compile css/ts and the program, outputting everything into the `build/` directory. `make clean` empties it.
 
 A Dockerfile is also provided.
 ```

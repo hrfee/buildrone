@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"io/ioutil"
 	"log"
 	"math"
 	"net/http"
@@ -47,11 +46,13 @@ func (app *appContext) NewKey(gc *gin.Context) {
 		end(500, fmt.Sprintf("Couldn't generate build token: %s", err), gc)
 		return
 	}
-	app.storage[id] = repo
-	err = app.store()
-	if err != nil {
-		end(500, fmt.Sprintf("Couldn't store data: %s", err), gc)
-		return
+	if !DEMOMODE {
+		app.storage[id] = repo
+		err = app.store()
+		if err != nil {
+			end(500, fmt.Sprintf("Couldn't store data: %s", err), gc)
+			return
+		}
 	}
 	log.Printf("%s/%s: Generating new key", namespace, name)
 	_, key, err := newBuildToken(namespace, name, repo.Secret)
@@ -319,16 +320,17 @@ func (app *appContext) getBuilds(gc *gin.Context) {
 			Branch: b.Branch,
 		}
 		if b.Files != "" {
-			files, err := ioutil.ReadDir(filepath.Join(STORAGE, b.Files))
+			files, err := os.ReadDir(filepath.Join(STORAGE, b.Files))
 			if err != nil {
 				log.Printf("%s/%s: Error reading \"%s\": %s\n", namespace, name, b.Files, err)
 				continue
 			}
 			dto.Files = make([]FileDTO, len(files))
 			for i, f := range files {
+				fInfo, _ := f.Info()
 				dto.Files[i] = FileDTO{
 					Name: f.Name(),
-					Size: fileSize(f.Size()),
+					Size: fileSize(fInfo.Size()),
 				}
 			}
 		}

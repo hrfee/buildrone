@@ -29,7 +29,7 @@ function _delete(url: string, data: Object, onreadystatechange: () => void): voi
 }
 
 // Files accordion will be opened if number of files is equal to or below this.
-const MAXFILESOPEN = 2;
+const MAXFILESOPEN = 3;
 
 interface Repo {
     Namespace: string;
@@ -99,51 +99,46 @@ class BuildCard implements Build {
             let fileList = '';
             for (let file of f) {
                 fileList += `
-                <li class="menu-item">
-                    <a href="${this._buildPrefix}/${file.Name}">${file.Name} <i class="menu-badge text-gray">${file.Size}</i></a>
+                <li class="flex flex-row gap-2 flex-nowrap max-w-md">
+                    <a class="hover:underline font-mono text-indigo-800 truncate" href="${this._buildPrefix}/${file.Name}">${file.Name}</a>
+                    <span class="badge ~info @low">${file.Size}</span>
                 </li>
                 `;
             }
             dropdown.checked = (f.length <= MAXFILESOPEN);
             fileEl.innerHTML = fileList;
-            accordion.style.display = "";
-            noFiles.style.display = "none";
+            accordion.classList.remove("hidden");
+            noFiles.classList.add("hidden");
         } else {
-            accordion.style.display = "none";
-            noFiles.style.display = "";
+            noFiles.classList.remove("hidden");
+            accordion.classList.add("hidden");
         }
     }
 
     constructor(build: Build, commit: string) {
         this._card = document.createElement("div") as HTMLDivElement;
+        this._card.classList.add("card", "flex", "flex-row", "flex-wrap", "gap-4", "justify-between");
         this._card.innerHTML = `
-        <div class="card minicard">
-            <div class="columns col-gapless">
-                <div class="column">
-                    <div class="card-header">
-                        <a class="card-title h5 text-monospace build-commit"></a>
-                        <div class="card-subtitle text-gray text-monospace build-name"></div>
-                        <div class="card-subtitle text-gray build-date"></div>
-                    </div>
-                </div>
-                <div class="divider-vert"></div>
-                <div class="column">
-                    <div class="card-body">
-                        <div class="accordion">
-                            <input type="checkbox" id="dropdown_${commit}" name="dropdown_${commit}" class="build-dropdown" hidden>
-                            <label class="accordion-header" for="dropdown_${commit}">
-                                <i class="icon icon-arrow-right mr-1"></i>
-                                <a>Files</a>
-                            </label>
-                            <div class="accordion-body">
-                                <ul class="menu menu-nav accordionList build-files"></ul>
-                            </div>
-                        </div>
-                        <p class="text-gray build-nofiles">No files published for this commit.</p>
-                    </div>
-                <div>
+        <div class="flex flex-col gap-2">
+            <div class="heading flex flex-col gap-2">
+                <a class="build-commit font-mono hover:underline"></a>
+                <div class="build-name font-mono text-neutral-400"></div>
             </div>
+            <div class="text-neutral-400 build-date"></div>
         </div>
+        <div class="flex flex-row gap-4 justify-end">
+            <div class="accordion">
+                <input type="checkbox" id="accordion-build-${commit}" name="accordion-build-${commit}" class="build-dropdown" hidden>
+                <label for="accordion-build-${commit}" class="accordion-header flex flex-row gap-2 text-indigo-950 text-lg">
+                    <i class="ri-arrow-right-s-line accordion-arrow"></i>
+                    <p class="hover:underline">Files</p>
+                </label>
+                <div class="accordion-body transition-all">
+                    <ul class="menu menu-nav accordionList build-files"></ul>
+                </div>
+            </div>
+            <p class="text-neutral-400 build-nofiles">No files published for this commit.</p>
+        <div>
         `;
         this._commitLink = this._card.querySelector(".build-commit") as HTMLAnchorElement;
         this.commit = commit;
@@ -161,11 +156,11 @@ class BuildCard implements Build {
 interface BranchTab {
     Branch: string;
     tabEl: HTMLDivElement;
-    buttonEl: HTMLAnchorElement;
+    buttonEl: HTMLElement;
 }
 
 const branchArea = document.getElementById("branch-area") as HTMLSpanElement;
-const contentBox = document.getElementById('content') as HTMLDivElement;
+const contentBox = document.getElementById("builds") as HTMLDivElement;
 
 class BranchTabs {
     private _current: string = "";
@@ -176,6 +171,7 @@ class BranchTabs {
     }
 
     tabEl = (branch: string): HTMLDivElement => {
+        // return document.getElementById(`tab-${branch}`) as HTMLDivElement;
         for (let t of this.tabs) {
             if (t.Branch == branch) {
                 return t.tabEl;
@@ -187,11 +183,12 @@ class BranchTabs {
         let tab = {} as BranchTab;
         tab.Branch = branch;
         tab.tabEl = document.createElement("div") as HTMLDivElement;
-        tab.tabEl.style.display = "none";
+        tab.tabEl.classList.add("w-full", "flex", "flex-col", "gap-4", "hidden");
+        tab.tabEl.id = `tab-${branch}`;
         contentBox.appendChild(tab.tabEl);
-        tab.buttonEl = document.createElement("a") as HTMLAnchorElement;
-        tab.buttonEl.classList.add("text-gray", "mr-1");
-        tab.buttonEl.textContent = branch + " ";
+        tab.buttonEl = document.createElement("span");
+        tab.buttonEl.classList.add("text-neutral-400", "hover:underline");
+        tab.buttonEl.textContent = branch;
         tab.buttonEl.onclick = () => { this.switch(branch); }
         branchArea.appendChild(tab.buttonEl);
         this.tabs.push(tab);
@@ -204,11 +201,13 @@ class BranchTabs {
         this._current = Branch;
         for (let t of this.tabs) {
             if (t.Branch == Branch) {
-                t.tabEl.style.display = "";
-                t.buttonEl.classList.remove("text-gray");
+                t.tabEl.classList.remove("hidden");
+                t.buttonEl.classList.remove("text-neutral-400");
+                t.buttonEl.classList.add("font-semibold");
             } else {
-                t.tabEl.style.display = "none";
-                t.buttonEl.classList.add("text-gray");
+                t.tabEl.classList.add("hidden");
+                t.buttonEl.classList.add("text-neutral-400");
+                t.buttonEl.classList.remove("font-semibold");
             }
         }
     }
@@ -223,6 +222,7 @@ _get(`${base}/repo/${namespace}/${repoName}`, null, function (): void {
     if (this.readyState == 4 && this.status == 200) {
         repo = this.response as Repo;
         repo.Builds = {};
+        // List "main" or "master" first
         for (let branch of repo.Branches) {
             if (branch == "main" || branch == "master") {
                 branchTabs.addTab(branch);
@@ -247,12 +247,11 @@ interface BuildsDTO {
 var currentBranch: string = "";
 var branchTabs = new BranchTabs();
 
+const loadButton = document.getElementById('loadMore') as HTMLButtonElement;
 const getPage = (page: number): void => _get(`${base}/repo/${namespace}/${repoName}/builds/${page}`, null, function (): void {
     if (this.readyState == 4) {
-        const loadButton = document.getElementById('loadMore') as HTMLButtonElement;
         if (this.status == 200) {
             currentPage = page;
-            loadButton.remove();
             const resp: BuildsDTO = this.response;
             for (const key of resp.Order) {
                 const build = resp.Builds[key];
@@ -260,6 +259,11 @@ const getPage = (page: number): void => _get(`${base}/repo/${namespace}/${repoNa
                     currentBranch = build.Branch;
                     branchTabs.current = build.Branch;
                 }
+                // Sometimes the received pageCount is incorrect, if we find an empty build we've hit the real end.
+                if (build.ID == 0 && build.Branch == "") {
+                    loadButton.classList.add("hidden");
+                }
+                if (build.Branch == "") continue;
                 let tabEl = branchTabs.tabEl(build.Branch);
                 build.Date = new Date(build.Date as any);
                 buildOrder.push(key);
@@ -272,8 +276,8 @@ const getPage = (page: number): void => _get(`${base}/repo/${namespace}/${repoNa
             }
         }
         loadButton.onclick = (): void => getPage(currentPage+1);
-        if (currentPage+1 <= repo.BuildPageCount) {
-            contentBox.appendChild(loadButton);
+        if (currentPage+1 > repo.BuildPageCount) {
+            loadButton.classList.add("hidden");
         }
     }
 });

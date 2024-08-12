@@ -6,3 +6,4 @@ build/
 storage.gob
 config.ini
 data/
+node_modules/
