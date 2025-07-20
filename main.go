@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/hrfee/woodpecker-go/drone"
+	drone "go.woodpecker-ci.org/woodpecker/v3/woodpecker-go/woodpecker"
 
 	"github.com/adrg/xdg"
 	"github.com/gin-contrib/static"
@@ -175,25 +175,28 @@ func fileSize(l int64) string {
 }
 
 func (app *appContext) loadRepos() (err error) {
-	dRepos, err := app.client.RepoList()
+	dRepos, err := app.client.RepoList(drone.RepoListOptions{All: false})
 	if err != nil {
 		return
 	}
 	for _, dRepo := range dRepos {
-		if !dRepo.Active {
+		// Probably redundant now that RepoListOption.All=false should filter them out
+		if !dRepo.IsActive {
 			continue
 		}
-		namespace := dRepo.Namespace
-		// Workaround for Woodpecker
-		if namespace == "" {
-			namespace = OVERRIDE_NAMESPACE
+		// Unlike drone, namespace and name are secondary keys and are stored/referenced combined.
+		nameComponents := strings.Split(dRepo.FullName, "/")
+		namespace := nameComponents[0]
+		name := ""
+		if len(nameComponents) > 1 {
+			name = nameComponents[1]
 		}
 		id := namespace + "/" + dRepo.Name
 		if _, ok := app.storage[id]; !ok {
 			newRepo := Repo{
 				Namespace: namespace,
-				Name:      dRepo.Name,
-				Link:      dRepo.Link,
+				Name:      name,
+				Link:      dRepo.ForgeURL,
 				Secret:    "",
 			}
 			newRepo.Builds = map[string]Build{}
@@ -212,7 +215,13 @@ type NewKeyRespDTO struct {
 }
 
 func (app *appContext) loadBuilds(bl map[string]Build, ns, name string) (builds map[string]Build, branches []string, latestBuild string, latestNonEmptyBuild string, err error) {
-	dBuildList, err := app.client.BuildList(namespaceToServer(ns), name, drone.ListOptions{Page: 1, Size: 500})
+	dRepo, err := app.client.RepoLookup(ns + "/" + name)
+	if err != nil {
+		out := fmt.Sprintf("Repository not found: %s/%s", ns, name)
+		log.Println(out)
+		return
+	}
+	dBuildList, err := app.client.PipelineList(dRepo.ID, drone.PipelineListOptions{ListOptions: drone.ListOptions{Page: 1, PerPage: 500}})
 	if err != nil {
 		return
 	}
@@ -225,7 +234,7 @@ func (app *appContext) loadBuilds(bl map[string]Build, ns, name string) (builds 
 		build := Build{
 			ID:     int64(dBuild.ID),
 			Name:   strings.Split(dBuild.Message, "\n")[0],
-			Date:   time.Unix(dBuild.StartedAt, 0),
+			Date:   time.Unix(dBuild.Started, 0),
 			Link:   dBuild.ForgeURL,
 			Branch: dBuild.Branch,
 		}

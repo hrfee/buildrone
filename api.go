@@ -167,7 +167,7 @@ func (app *appContext) addFiles(gc *gin.Context) {
 	files := form.File
 	_, ok := app.storage[ns+"/"+name]
 	if !ok {
-		dRepo, err := app.client.Repo(ns, name)
+		dRepo, err := app.client.RepoLookup(ns + "/" + name)
 		if err != nil {
 			out := fmt.Sprintf("Repository not found: %s/%s", ns, name)
 			end(400, out, gc)
@@ -177,7 +177,7 @@ func (app *appContext) addFiles(gc *gin.Context) {
 		newRepo := Repo{
 			Namespace: ns,
 			Name:      name,
-			Link:      dRepo.Link,
+			Link:      dRepo.ForgeURL,
 			Secret:    shortuuid.New(),
 		}
 		newRepo.Builds = map[string]Build{}
