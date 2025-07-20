@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	drone "go.woodpecker-ci.org/woodpecker/v3/woodpecker-go/woodpecker"
+	drone "github.com/hrfee/woodpecker/woodpecker-go/woodpecker"
 
 	"github.com/adrg/xdg"
 	"github.com/gin-contrib/static"
